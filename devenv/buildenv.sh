@@ -1,7 +1,7 @@
 # Usage: source buildenv.sh
 
-BASEDIR="$HOME/osbook/devenv/x86_64-elf"
-EDK2DIR="$HOME/edk2"
+BASEDIR="/usr/lib/llvm-10/"
+EDK2DIR="$HOME/develop/mikanos/edk2"
 export CPPFLAGS="\
 -I$BASEDIR/include/c++/v1 -I$BASEDIR/include -I$BASEDIR/include/freetype2 \
 -I$EDK2DIR/MdePkg/Include -I$EDK2DIR/MdePkg/Include/X64 \

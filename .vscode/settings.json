@@ -1,0 +1,10 @@
+{
+  "files.associations": {
+    "*.mcmeta": "json",
+    "fileinfo.h": "c",
+    "graphicsoutput.h": "c",
+    "uefi.h": "c",
+    "uefilib.h": "c",
+    "loadedimage.h": "c"
+  }
+}
