@@ -1,3 +1,5 @@
 edk2/*
 *.img
 mnt/
+*.o
+*.elf
