@@ -3,3 +3,4 @@ edk2/*
 mnt/
 *.o
 *.elf
+devenv/x86_64-elf/

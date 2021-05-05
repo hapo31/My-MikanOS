@@ -2,6 +2,10 @@
 
 #include <stdint.h>
 
+struct PixelColor {
+  uint8_t r, g, b;
+};
+
 enum PixelFormat
 {
   kPixelRGBResv8BitPerColor,
