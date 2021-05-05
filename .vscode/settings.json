@@ -5,6 +5,7 @@
     "graphicsoutput.h": "c",
     "uefi.h": "c",
     "uefilib.h": "c",
-    "loadedimage.h": "c"
+    "loadedimage.h": "c",
+    "frame_buffer.hpp": "c"
   }
 }

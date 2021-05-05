@@ -10,7 +10,9 @@
 #include <Protocol/BlockIo.h>
 #include <Guid/FileInfo.h>
 
-#include  "elf.hpp"
+#include "elf.hpp"
+#include "frame_buffer.hpp"
+
 
 extern EFI_GUID gEfiGraphicsOutputProtocolGuid;
 
@@ -297,11 +299,33 @@ UefiMain(
     }
   }
 
-  typedef void EntryPointType(UINT64, UINT64);
+  struct FrameBufferConfig config = {
+    (UINT8*)gop->Mode->FrameBufferBase,
+    gop->Mode->Info->PixelsPerScanLine,
+    gop->Mode->Info->HorizontalResolution,
+    gop->Mode->Info->VerticalResolution,
+    0
+  };
+
+  switch(gop->Mode->Info->PixelFormat) {
+    case PixelRedGreenBlueReserved8BitPerColor:
+      config.pixel_format = kPixelRGBResv8BitPerColor;
+      break;
+
+    case PixelBlueGreenRedReserved8BitPerColor:
+      config.pixel_format = kPixelBGRResv8BitPerColor;
+      break;
+
+    default:
+      Print(L"Unimplemented pixel %d\n", gop->Mode->Info->PixelFormat);
+      Halt();
+    }
+
+  typedef void EntryPointType(const struct FrameBufferConfig*);
 
   UINT64 entry_addr = *(UINT64 *)(kernel_first_addr + 24);
   EntryPointType *entry_point = (EntryPointType *)entry_addr;
-  entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
+  entry_point(&config);
 
   Print(L"All done\n");
 
