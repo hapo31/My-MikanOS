@@ -1,5 +1,6 @@
 TARGET = kernel.elf
-OBJS = main.o
+OBJS = main.o font.o graphics.o hankaku.o console.o newlib_support.o
+DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=d))))
 
 INCLUDE_DIR += $(HOME)/develop/mikanos/devenv/x86_64-elf
 EDK2DIR			+= $(HOME)/develop/mikanos/edk2
@@ -28,3 +29,18 @@ kernel.elf: $(OBJS) Makefile
 
 %.o: %.cpp Makefile
 				clang++ $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+.%.d: %.cpp
+				clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
+				$(eval OBJ = $(<:.cpp=.o))
+				sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
+
+%.o: %.c Makefile
+	clang $(CPPFLAGS) $(CFLAGS) -c $<
+
+.%.d: %.c
+	clang $(CPPFLAGS) $(CFLAGS) -MM $< > $@
+	$(eval OBJ = $(<:.c=.o))
+	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
+
+-include $(DEPENDS)
