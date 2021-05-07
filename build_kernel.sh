@@ -2,6 +2,10 @@
 
 pushd kernel
 
-make
+if [ $1 = "clean" ]; then
+  make clean
+else
+  make
+fi
 
 popd

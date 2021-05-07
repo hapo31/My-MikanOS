@@ -15,7 +15,7 @@ void WriteAscii(PixelWriter* writer, const FrameBufferConfig* config, int x, int
   for (int dy = 0; dy < 16; ++dy) {
     for (int dx = 0; dx < 8; ++dx) {
       if (font[dy] << dx & 0x80u) {
-        auto pixel = writer->GetPixel(*config, dx + x, dy + y);
+        auto pixel = writer->GetPixel(config, dx + x, dy + y);
         writer->Write(&pixel, color);
       }
     }

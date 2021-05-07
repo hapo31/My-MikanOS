@@ -33,7 +33,7 @@ void Console::NewLine() {
   } else {
     for (int y = 0; y < 16 * kRows; ++y) {
       for (int x = 0; x < 8 * kColumns; ++x) {
-        auto target = writer->GetPixel(*fbConfig, x, y);
+        auto target = writer->GetPixel(fbConfig, x, y);
         writer->Write(&target, bgColor);
       }
     }

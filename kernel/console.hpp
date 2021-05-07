@@ -4,7 +4,7 @@
 
 class Console {
 public:
-  static const int kRows = 25, kColumns = 80;
+  static const int kRows = 40, kColumns = 80;
   Console(PixelWriter *writer, const FrameBufferConfig *config, const PixelColor &fgColor, const PixelColor &bgColor);
   void PutString(const char *a);
 private:
