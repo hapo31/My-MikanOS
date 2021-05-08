@@ -14,7 +14,7 @@ const char mouse_cousor_shape[kMouseCursorHeight][kMouseCursorWidth + 1] = {
     "@@      @.@    ", "@       @.@    ", "         @.@   ", "         @@@   ",
 };
 
-void DrawMouseCursor(PixelWriter* writer, FrameBufferConfig* config,
+void DrawMouseCursor(PixelWriter* writer, const FrameBufferConfig* config,
                      Vector2D<int> position) {
   for (int dy = 0; dy < kMouseCursorHeight; ++dy) {
     for (int dx = 0; dx < kMouseCursorWidth; ++dx) {
@@ -28,7 +28,7 @@ void DrawMouseCursor(PixelWriter* writer, FrameBufferConfig* config,
   }
 }
 
-void EraseMouseCursor(PixelWriter* writer, FrameBufferConfig* config,
+void EraseMouseCursor(PixelWriter* writer, const FrameBufferConfig* config,
                       Vector2D<int> position, PixelColor erase_color) {
   for (int dy = 0; dy < kMouseCursorHeight; ++dy) {
     for (int dx = 0; dx < kMouseCursorWidth; ++dx) {
@@ -41,7 +41,8 @@ void EraseMouseCursor(PixelWriter* writer, FrameBufferConfig* config,
 
 }  // namespace
 
-MouseCursor::MouseCursor(PixelWriter* writer_, FrameBufferConfig* fbConfig_,
+MouseCursor::MouseCursor(PixelWriter* writer_,
+                         const FrameBufferConfig* fbConfig_,
                          PixelColor erase_color_,
                          Vector2D<int> initial_position_)
     : writer(writer_),

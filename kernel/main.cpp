@@ -75,7 +75,8 @@ void SwitchEhci2Xhci(const pci::Device &xhcDev) {
   bool intel_ehc_exist = false;
   for (int i = 0; i < pci::num_devices; ++i) {
     const auto &dev = pci::devices[i];
-    if (dev.class_code.Match(0x0cu, 0x03u, 0x20u) && pci::ReadVendorId(dev)) {
+    if (dev.class_code.Match(0x0cu, 0x03u, 0x20u) &&
+        pci::ReadVendorId(dev) == 0x8086) {
       intel_ehc_exist = true;
       break;
     }
@@ -123,6 +124,9 @@ extern "C" void KernelMain(const struct FrameBufferConfig *config) {
   printk("Display info: %dx%d\n", config->horizontal_resolution,
          config->vertical_resolution);
 
+  mouse_cursor = new (mouse_cursor_buf)
+      MouseCursor(writer, config, kDesktopBGColor, {300, 200});
+
   auto err = pci::ScanAllBus();
   printk("ScanAllBus: %s\n", err.Name());
 
@@ -144,7 +148,7 @@ extern "C" void KernelMain(const struct FrameBufferConfig *config) {
     }
   }
 
-  SetLogLevel(kInfo);
+  SetLogLevel(kDebug);
 
   if (xhcDev) {
     Log(kInfo, "xHC has been found: %d.%d.%d\n", xhcDev->bus, xhcDev->device,
