@@ -1,5 +1,6 @@
 TARGET = kernel.elf
-OBJS = main.o font.o graphics.o hankaku.o console.o asmfunc.o pci.o logger.o mouse.o libcxx_support.o newlib_support.o \
+OBJS = main.o font.o graphics.o hankaku.o console.o asmfunc.o pci.o logger.o mouse_.o interrupt.o \
+			libcxx_support.o newlib_support.o \
 			usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
 			usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
 			usb/classdriver/base.o usb/classdriver/hid.o usb/classdriver/keyboard.o \
@@ -31,15 +32,15 @@ clean:
 				rm -rf ./usb/*.o
 				rm -rf ./usb/classdriver/*.o
 				rm -rf ./usb/xhci/*.o
-kernel.elf: $(OBJS) Makefile
+kernel.elf: $(OBJS) mouse.o Makefile
 				ld.lld $(LDFLAGS) -o kernel.elf $(OBJS)
 
 %.o: %.cpp Makefile
 				clang++ $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c $<
 				mv $(notdir $*.o) $(dir $<) || true
 
-mouse.o: mouse.cpp Makefile
-				clang++ $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c mouse.cpp
+mouse_.o: mouse.cpp Makefile
+				clang++ $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c mouse.cpp -o mouse_.o
 
 .%.d: %.cpp
 				clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
