@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdio>
 
-enum class DescriptorType {
+enum class InterruptDescriptorType {
   kUpper8Bytes = 0,
   kLDT = 2,
   kTSSAvailable = 9,
@@ -18,7 +18,7 @@ union InterruptDesriptorAttribute {
   struct {
     uint16_t interrupt_stack_table : 3;
     uint16_t : 5;
-    DescriptorType type : 4;
+    InterruptDescriptorType type : 4;
     uint16_t : 1;
     uint16_t descritor_privilege_level : 2;
     uint16_t present : 1;
@@ -37,7 +37,7 @@ struct InterruptDescriptor {
 extern std::array<InterruptDescriptor, 256> idt;
 
 constexpr InterruptDesriptorAttribute MakeIDTAttr(
-    DescriptorType type, uint8_t descriptor_privilege_level,
+    InterruptDescriptorType type, uint8_t descriptor_privilege_level,
     bool present = true, uint8_t interrupt_stack_table = 0) {
   InterruptDesriptorAttribute attr{};
   attr.bits.interrupt_stack_table = interrupt_stack_table;

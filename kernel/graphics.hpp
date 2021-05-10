@@ -44,10 +44,10 @@ class BGRResv8BitPerColorPixelWriter : public PixelWriter {
   virtual void Write(uint8_t **target, const PixelColor &color) override;
 };
 
-void FillRect(PixelWriter *writer, const FrameBufferConfig *config,
+void FillRect(PixelWriter *writer, const FrameBufferConfig &config,
               const Vector2D<int> &pos, const Vector2D<int> &size,
               const PixelColor &color);
 
-void DrawRect(PixelWriter *writer, const FrameBufferConfig *config,
+void DrawRect(PixelWriter *writer, const FrameBufferConfig &config,
               const Vector2D<int> &pos, const Vector2D<int> &size,
               const PixelColor &color);

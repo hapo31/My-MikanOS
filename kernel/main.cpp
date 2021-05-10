@@ -11,9 +11,13 @@
 #include "graphics.hpp"
 #include "interrupt.hpp"
 #include "logger.hpp"
+#include "memory_manager.hpp"
+#include "memory_map.hpp"
 #include "mouse.hpp"
+#include "paging.hpp"
 #include "pci.hpp"
 #include "queue.hpp"
+#include "segment.hpp"
 #include "usb/classdriver/mouse.hpp"
 #include "usb/device.hpp"
 #include "usb/memory.hpp"
@@ -30,6 +34,9 @@ struct Message {
 };
 
 void operator delete(void *obj) noexcept {}
+
+char memory_manager_buf[sizeof(BitmapMemoryManager)];
+BitmapMemoryManager *memory_manager;
 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter *pixel_writer;
@@ -112,13 +119,19 @@ void SwitchEhci2Xhci(const pci::Device &xhcDev) {
       ehci2xhci_ports);
 }
 
-extern "C" void KernelMain(const struct FrameBufferConfig *config) {
-  uint8_t *frame_buffer = reinterpret_cast<uint8_t *>(config->frame_buffer);
+alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
-  const int kFrameWidth = config->horizontal_resolution;
-  const int kFrameHeight = config->vertical_resolution;
+extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
+                                   const MemoryMap &memmap_ref) {
+  const FrameBufferConfig config{config_ref};
+  const MemoryMap memmap{memmap_ref};
 
-  auto writer = CreatePixelContext(config);
+  uint8_t *frame_buffer = reinterpret_cast<uint8_t *>(config.frame_buffer);
+
+  const int kFrameWidth = config.horizontal_resolution;
+  const int kFrameHeight = config.vertical_resolution;
+
+  auto writer = CreatePixelContext(&config);
 
   FillRect(writer, config, {0, 0}, {kFrameWidth, kFrameHeight},
            kDesktopBGColor);
@@ -136,14 +149,76 @@ extern "C" void KernelMain(const struct FrameBufferConfig *config) {
   //               {160, 160, 160});
 
   console = new (console_buf)
-      Console(writer, config, {200, 200, 200}, kDesktopBGColor);
+      Console(writer, &config, {200, 200, 200}, kDesktopBGColor);
 
   printk("Welcome to fuckOS!\n");
-  printk("Display info: %dx%d\n", config->horizontal_resolution,
-         config->vertical_resolution);
+  printk("Display info: %dx%d\n", config.horizontal_resolution,
+         config.vertical_resolution);
+
+  SetupSegments();
+
+  const uint16_t kernel_cs = 1 << 3;
+  const uint16_t kernel_ss = 2 << 3;
+
+  SetDSAll(0);
+  SetCSSS(kernel_cs, kernel_ss);
+
+  SetupIdentityPageTable();
+
+  ::memory_manager = new (memory_manager_buf) BitmapMemoryManager;
+
+  const auto memory_map_base = reinterpret_cast<uintptr_t>(memmap.buffer);
+  uintptr_t available_end = 0;
+
+  for (uintptr_t iter = memory_map_base;
+       iter < memory_map_base + memmap.map_size;
+       iter += memmap.descriptor_size) {
+    auto desc = reinterpret_cast<const MemoryDescriptor *>(iter);
+    if (available_end < desc->physical_start) {
+      memory_manager->MarkAllocated(
+          FrameID{available_end / kBytesPerFrame},
+          (desc->physical_start - available_end) / kBytesPerFrame);
+    }
+    const auto physical_end =
+        desc->physical_start + desc->number_of_pages * kUEFIPageSize;
+
+    if (IsAvailable(static_cast<MemoryType>(desc->type))) {
+      available_end = physical_end;
+    } else {
+      memory_manager->MarkAllocated(
+          FrameID{desc->physical_start / kBytesPerFrame},
+          desc->number_of_pages * kUEFIPageSize / kBytesPerFrame);
+    }
+  }
+
+  memory_manager->SetMemoryRange(FrameID{1},
+                                 FrameID{available_end / kBytesPerFrame});
+
+  printk("memory available_end : %p\n", available_end);
+
+  const std::array available_memory_types{
+      MemoryType::kEfiBootServicesCode,
+      MemoryType::kEfiBootServicesData,
+      MemoryType::kEfiConversionalMemory,
+  };
+
+  printk("memory_map: %p\n", &memmap);
+  for (auto iter = reinterpret_cast<uintptr_t>(memmap.buffer);
+       iter < reinterpret_cast<uintptr_t>(memmap.buffer) + memmap.map_size;
+       iter += memmap.descriptor_size) {
+    auto desc = reinterpret_cast<MemoryDescriptor *>(iter);
+    for (int i = 0; i < available_memory_types.size(); ++i) {
+      if (desc->type == available_memory_types[i]) {
+        printk("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n",
+               desc->type, desc->physical_start,
+               desc->physical_start + desc->number_of_pages * 4096 - 1,
+               desc->number_of_pages, desc->attribute);
+      }
+    }
+  }
 
   mouse_cursor = new (mouse_cursor_buf)
-      MouseCursor(writer, config, kDesktopBGColor, {300, 200});
+      MouseCursor(writer, &config, kDesktopBGColor, {300, 200});
 
   auto err = pci::ScanAllBus();
   printk("ScanAllBus: %s\n", err.Name());
@@ -180,7 +255,7 @@ extern "C" void KernelMain(const struct FrameBufferConfig *config) {
   const uint16_t cs = GetCS();
 
   SetIDTEntry(idt[InterruptVector::kXHCI],
-              MakeIDTAttr(DescriptorType::kInterruptGate, 0),
+              MakeIDTAttr(InterruptDescriptorType::kInterruptGate, 0),
               reinterpret_cast<uint64_t>(IntHandlerXHCI), cs);
   LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
 
@@ -229,7 +304,6 @@ extern "C" void KernelMain(const struct FrameBufferConfig *config) {
   }
 
   for (;;) {
-    Log(kInfo, "Message Wait...\n");
     __asm__("cli");
     if (main_queue.Count() == 0) {
       __asm__("sti\n\thlt");
