@@ -12,17 +12,9 @@
 
 #include "elf.hpp"
 #include "frame_buffer.hpp"
+#include "memory_map.hpp"
 
 extern EFI_GUID gEfiGraphicsOutputProtocolGuid;
-
-struct MemoryMap {
-  UINTN buffer_size;
-  VOID *buffer;
-  UINTN map_size;
-  UINTN map_key;
-  UINTN descriptor_size;
-  UINT32 descriptor_version;
-};
 
 EFI_STATUS GetMemoryMap(struct MemoryMap *map) {
   if (map->buffer == NULL) {

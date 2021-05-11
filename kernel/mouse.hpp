@@ -2,15 +2,8 @@
 
 #include "graphics.hpp"
 
-class MouseCursor {
- public:
-  MouseCursor(PixelWriter* writer, const FrameBufferConfig* fbConfig,
-              PixelColor erase_color, Vector2D<int> initial_position);
-  void MoveRelative(Vector2D<int> displacement);
+const int kMouseCursorWidth = 15;
+const int kMouseCursorHeight = 24;
+const PixelColor kMouseTransparentColor{0, 0, 1};
 
- private:
-  PixelWriter* writer = nullptr;
-  const FrameBufferConfig* fbConfig;
-  PixelColor erase_color;
-  Vector2D<int> position;
-};
+void DrawMouseCursor(PixelWriter* writer, Vector2D<int> position);

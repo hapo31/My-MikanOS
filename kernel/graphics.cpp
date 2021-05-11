@@ -1,48 +1,47 @@
 #include "./graphics.hpp"
 
-uint8_t* PixelWriter::GetPixel(const FrameBufferConfig* config, int x, int y) {
-  const int pixel_position = config->pixels_per_scan_line * y + x;
-  return &config->frame_buffer[4 * pixel_position];
+void RGBResv8BitPerColorPixelWriter::Write(const PixelColor& color, int x,
+                                           int y) {
+  auto p = GetPixel(x, y);
+  p[0] = color.r;
+  p[1] = color.g;
+  p[2] = color.b;
 }
 
-void RGBResv8BitPerColorPixelWriter::Write(uint8_t** target,
-                                           const PixelColor& color) {
-  (*target)[0] = color.r;
-  (*target)[1] = color.g;
-  (*target)[2] = color.b;
+void BGRResv8BitPerColorPixelWriter::Write(const PixelColor& color, int x,
+                                           int y) {
+  auto p = GetPixel(x, y);
+  p[0] = color.b;
+  p[1] = color.g;
+  p[2] = color.r;
 }
 
-void BGRResv8BitPerColorPixelWriter::Write(uint8_t** target,
-                                           const PixelColor& color) {
-  (*target)[0] = color.b;
-  (*target)[1] = color.g;
-  (*target)[2] = color.r;
-}
-
-void FillRect(PixelWriter* writer, const FrameBufferConfig& config,
-              const Vector2D<int>& pos, const Vector2D<int>& size,
-              const PixelColor& color) {
+void FillRect(PixelWriter& writer, const Vector2D<int>& pos,
+              const Vector2D<int>& size, const PixelColor& color) {
   for (int dy = 0; dy < size.y; ++dy) {
     for (int dx = 0; dx < size.x; ++dx) {
-      auto target = writer->GetPixel(&config, dx + pos.x, dy + pos.y);
-      writer->Write(&target, color);
+      writer.Write(color, dx + pos.x, dy + pos.y);
     }
   }
 }
 
-void DrawRect(PixelWriter* writer, const FrameBufferConfig& config,
-              const Vector2D<int>& pos, const Vector2D<int>& size,
-              const PixelColor& color) {
+void DrawRect(PixelWriter& writer, const Vector2D<int>& pos,
+              const Vector2D<int>& size, const PixelColor& color) {
   for (int dx = 0; dx < size.x; ++dx) {
-    auto target = writer->GetPixel(&config, pos.x + dx, pos.y);
-    writer->Write(&target, color);
-    target = writer->GetPixel(&config, pos.x + dx, pos.y + size.y - 1);
-    writer->Write(&target, color);
+    writer.Write(color, pos.x + dx, pos.y);
+    writer.Write(color, pos.x + dx, pos.y + size.y - 1);
   }
   for (int dy = 0; dy < size.x; ++dy) {
-    auto target = writer->GetPixel(&config, pos.x, pos.y + dy);
-    writer->Write(&target, color);
-    target = writer->GetPixel(&config, pos.x + size.x, pos.y + dy);
-    writer->Write(&target, color);
+    writer.Write(color, pos.x, pos.y + dy);
+    writer.Write(color, pos.x + size.x, pos.y + dy);
   }
+}
+
+void DrawDesktop(PixelWriter& writer) {
+  int width = writer.Width();
+  int height = writer.Height();
+  FillRect(writer, {0, 0}, {width, height}, kDesktopBGColor);
+  FillRect(writer, {0, height - 50}, {width, 50}, {1, 8, 17});
+  FillRect(writer, {0, height - 50}, {width / 5, 50}, {80, 80, 80});
+  DrawRect(writer, {10, height - 40}, {30, 30}, {160, 160, 160});
 }

@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <numeric>
+#include <vector>
 
 #include "asmfunc.h"
 #include "console.hpp"
@@ -10,6 +12,7 @@
 #include "frame_buffer.hpp"
 #include "graphics.hpp"
 #include "interrupt.hpp"
+#include "layer.hpp"
 #include "logger.hpp"
 #include "memory_manager.hpp"
 #include "memory_map.hpp"
@@ -23,9 +26,7 @@
 #include "usb/memory.hpp"
 #include "usb/xhci/trb.hpp"
 #include "usb/xhci/xhci.hpp"
-
-const PixelColor kDesktopBGColor{100, 128, 50};
-const PixelColor kDesktopFGColor{0, 255, 255};
+#include "window.hpp"
 
 struct Message {
   enum Type {
@@ -46,16 +47,16 @@ Console *console;
 
 ArrayQueue<Message> *main_queue;
 
-PixelWriter *CreatePixelContext(const struct FrameBufferConfig *config) {
+PixelWriter *CreateFrameWriter(const struct FrameBufferConfig *config) {
   switch (config->pixel_format) {
     case kPixelRGBResv8BitPerColor:
       return pixel_writer =
-                 new (pixel_writer_buf) RGBResv8BitPerColorPixelWriter;
+                 new (pixel_writer_buf) RGBResv8BitPerColorPixelWriter(*config);
       break;
 
     case kPixelBGRResv8BitPerColor:
       return pixel_writer =
-                 new (pixel_writer_buf) BGRResv8BitPerColorPixelWriter;
+                 new (pixel_writer_buf) BGRResv8BitPerColorPixelWriter(*config);
       break;
   }
 }
@@ -65,14 +66,6 @@ usb::xhci::Controller *xhc;
 __attribute__((interrupt)) void IntHandlerXHCI(InterruptFrame *frame) {
   main_queue->Push(Message{Message::kInterruptXHCI});
   NotifyEndOfInterrupt();
-}
-
-int WritePixel(PixelWriter *writer, const FrameBufferConfig *config, int x,
-               int y, const PixelColor &c) {
-  const int pixel_position = config->pixels_per_scan_line * y + x;
-  uint8_t *p = &config->frame_buffer[4 * pixel_position];
-  writer->Write(&p, c);
-  return 0;
 }
 
 int printk(const char *format, ...) {
@@ -88,12 +81,11 @@ int printk(const char *format, ...) {
   return result;
 }
 
-char mouse_cursor_buf[sizeof(MouseCursor)];
-MouseCursor *mouse_cursor;
+unsigned int mouse_layer_id;
 
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
-  mouse_cursor->MoveRelative({displacement_x, displacement_y});
-  Log(kInfo, "Mouse displacement(%d, %d)\n", displacement_x, displacement_y);
+  layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
+  layer_manager->Draw();
 }
 
 void SwitchEhci2Xhci(const pci::Device &xhcDev) {
@@ -131,29 +123,38 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   const int kFrameWidth = config.horizontal_resolution;
   const int kFrameHeight = config.vertical_resolution;
 
-  auto writer = CreatePixelContext(&config);
+  auto writer = CreateFrameWriter(&config);
 
-  FillRect(writer, config, {0, 0}, {kFrameWidth, kFrameHeight},
-           kDesktopBGColor);
-  // FillRect(writer,config,
-  //               {0, kFrameHeight - 50},
-  //               {kFrameWidth, 50},
-  //               {1, 8, 17});
-  // FillRect(writer,config,
-  //               {0, kFrameHeight - 50},
-  //               {kFrameWidth / 5, 50},
-  //               {80, 80, 80});
-  // DrawRect(writer,config,
-  //               {10, kFrameHeight - 40},
-  //               {30, 30},
-  //               {160, 160, 160});
+  DrawDesktop(*pixel_writer);
 
-  console = new (console_buf)
-      Console(writer, &config, {200, 200, 200}, kDesktopBGColor);
+  console = new (console_buf) Console(writer, {200, 200, 200}, kDesktopBGColor);
+
+  console->SetWriter(pixel_writer);
 
   printk("Welcome to fuckOS!\n");
   printk("Display info: %dx%d\n", config.horizontal_resolution,
          config.vertical_resolution);
+
+  const std::array available_memory_types{
+      MemoryType::kEfiBootServicesCode,
+      MemoryType::kEfiBootServicesData,
+      MemoryType::kEfiConversionalMemory,
+  };
+
+  printk("memory_map: %p\n", &memmap);
+  for (auto iter = reinterpret_cast<uintptr_t>(memmap.buffer);
+       iter < reinterpret_cast<uintptr_t>(memmap.buffer) + memmap.map_size;
+       iter += memmap.descriptor_size) {
+    auto desc = reinterpret_cast<MemoryDescriptor *>(iter);
+    for (int i = 0; i < available_memory_types.size(); ++i) {
+      if (desc->type == available_memory_types[i]) {
+        printk("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n",
+               desc->type, desc->physical_start,
+               desc->physical_start + desc->number_of_pages * 4096 - 1,
+               desc->number_of_pages, desc->attribute);
+      }
+    }
+  }
 
   SetupSegments();
 
@@ -194,31 +195,14 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   memory_manager->SetMemoryRange(FrameID{1},
                                  FrameID{available_end / kBytesPerFrame});
 
-  printk("memory available_end : %p\n", available_end);
+  printk("memory available_end : %p - %p = (%p)\n", memory_map_base,
+         available_end, available_end - memory_map_base);
 
-  const std::array available_memory_types{
-      MemoryType::kEfiBootServicesCode,
-      MemoryType::kEfiBootServicesData,
-      MemoryType::kEfiConversionalMemory,
-  };
-
-  printk("memory_map: %p\n", &memmap);
-  for (auto iter = reinterpret_cast<uintptr_t>(memmap.buffer);
-       iter < reinterpret_cast<uintptr_t>(memmap.buffer) + memmap.map_size;
-       iter += memmap.descriptor_size) {
-    auto desc = reinterpret_cast<MemoryDescriptor *>(iter);
-    for (int i = 0; i < available_memory_types.size(); ++i) {
-      if (desc->type == available_memory_types[i]) {
-        printk("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n",
-               desc->type, desc->physical_start,
-               desc->physical_start + desc->number_of_pages * 4096 - 1,
-               desc->number_of_pages, desc->attribute);
-      }
-    }
+  if (auto err = InitializeHeap(*memory_manager)) {
+    Log(kError, "failed to allocate pages: %s at %s:%d\n", err.Name(),
+        err.File(), err.Line());
+    exit(1);
   }
-
-  mouse_cursor = new (mouse_cursor_buf)
-      MouseCursor(writer, &config, kDesktopBGColor, {300, 200});
 
   auto err = pci::ScanAllBus();
   printk("ScanAllBus: %s\n", err.Name());
@@ -302,6 +286,31 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
       }
     }
   }
+
+  auto bgWindow = std::make_shared<Window>(kFrameWidth, kFrameHeight);
+  auto bgWriter = bgWindow->Writer();
+
+  DrawDesktop(*bgWriter);
+  console->SetWriter(bgWriter);
+
+  auto mouse_window =
+      std::make_shared<Window>(kMouseCursorWidth, kMouseCursorHeight);
+
+  mouse_window->SetTrasparentColor(kMouseTransparentColor);
+  DrawMouseCursor(mouse_window->Writer(), {0, 0});
+
+  layer_manager = new LayerManager;
+  layer_manager->SetWriter(pixel_writer);
+
+  auto bglayer_id =
+      layer_manager->NewLayer().SetWindow(bgWindow).Move({0, 0}).ID();
+
+  mouse_layer_id =
+      layer_manager->NewLayer().SetWindow(mouse_window).Move({200, 200}).ID();
+
+  layer_manager->UpDown(bglayer_id, 0);
+  layer_manager->UpDown(mouse_layer_id, 1);
+  layer_manager->Draw();
 
   for (;;) {
     __asm__("cli");

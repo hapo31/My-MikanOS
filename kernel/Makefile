@@ -1,6 +1,6 @@
 TARGET = kernel.elf
 OBJS = main.o font.o graphics.o hankaku.o console.o asmfunc.o pci.o logger.o mouse_.o \
-			interrupt.o memory_manager.o paging.o segment.o \
+			interrupt.o memory_manager.o paging.o segment.o window.o layer.o \
 			libcxx_support.o newlib_support.o \
 			usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
 			usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \

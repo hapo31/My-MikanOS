@@ -5,14 +5,15 @@
 class Console {
  public:
   static const int kRows = 30, kColumns = 80;
-  Console(PixelWriter *writer, const FrameBufferConfig *config,
-          const PixelColor &fgColor, const PixelColor &bgColor);
+  Console(PixelWriter *writer, const PixelColor &fgColor,
+          const PixelColor &bgColor);
   void PutString(const char *a);
+  void SetWriter(PixelWriter *writer);
 
  private:
   void NewLine();
+  void Refresh();
   PixelWriter *writer;
-  const FrameBufferConfig *fbConfig;
   const PixelColor fgColor, bgColor;
   char buffer[kRows][kColumns + 1];
   int cursorRow;

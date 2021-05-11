@@ -5,6 +5,14 @@ struct PixelColor {
   uint8_t r, g, b;
 };
 
+inline bool operator==(const PixelColor &lhs, const PixelColor &rhs) {
+  return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b;
+}
+
+inline bool operator!=(const PixelColor &lhs, const PixelColor &rhs) {
+  return !(lhs == rhs);
+}
+
 template <typename T>
 struct Vector2D {
   T x, y;
@@ -19,35 +27,47 @@ struct Vector2D {
 
 class PixelWriter {
  public:
-  PixelWriter() = default;
   virtual ~PixelWriter() = default;
-  uint8_t *GetPixel(const FrameBufferConfig *config, int x, int y);
-  virtual void Write(uint8_t **target, const PixelColor &color) = 0;
-  virtual void Write(const FrameBufferConfig *config, const PixelColor &color,
-                     int x, int y) {
-    auto target = GetPixel(config, x, y);
-    Write(&target, color);
+  virtual void Write(const PixelColor &color, int x, int y) = 0;
+  virtual int Width() const = 0;
+  virtual int Height() const = 0;
+};
+
+class FrameBufferWriter : public PixelWriter {
+ public:
+  FrameBufferWriter(const FrameBufferConfig &fbConfig_) : fbConfig(fbConfig_) {}
+  ~FrameBufferWriter() = default;
+  virtual int Width() const override { return fbConfig.horizontal_resolution; }
+  virtual int Height() const override { return fbConfig.vertical_resolution; }
+
+ protected:
+  uint8_t *GetPixel(int x, int y) {
+    return fbConfig.frame_buffer + 4 * (fbConfig.pixels_per_scan_line * y + x);
   }
+
+ private:
+  const FrameBufferConfig &fbConfig;
 };
 
-class RGBResv8BitPerColorPixelWriter : public PixelWriter {
+class RGBResv8BitPerColorPixelWriter : public FrameBufferWriter {
  public:
-  using PixelWriter::PixelWriter;
-  ~RGBResv8BitPerColorPixelWriter() = default;
-  virtual void Write(uint8_t **target, const PixelColor &color) override;
+  using FrameBufferWriter::FrameBufferWriter;
+  virtual void Write(const PixelColor &color, int x, int y) override;
 };
 
-class BGRResv8BitPerColorPixelWriter : public PixelWriter {
+class BGRResv8BitPerColorPixelWriter : public FrameBufferWriter {
  public:
-  using PixelWriter::PixelWriter;
-  ~BGRResv8BitPerColorPixelWriter() = default;
-  virtual void Write(uint8_t **target, const PixelColor &color) override;
+  using FrameBufferWriter::FrameBufferWriter;
+  virtual void Write(const PixelColor &color, int x, int y) override;
 };
 
-void FillRect(PixelWriter *writer, const FrameBufferConfig &config,
-              const Vector2D<int> &pos, const Vector2D<int> &size,
-              const PixelColor &color);
+void FillRect(PixelWriter &writer, const Vector2D<int> &pos,
+              const Vector2D<int> &size, const PixelColor &color);
 
-void DrawRect(PixelWriter *writer, const FrameBufferConfig &config,
-              const Vector2D<int> &pos, const Vector2D<int> &size,
-              const PixelColor &color);
+void DrawRect(PixelWriter &writer, const Vector2D<int> &pos,
+              const Vector2D<int> &size, const PixelColor &color);
+
+const PixelColor kDesktopBGColor{100, 128, 50};
+const PixelColor kDesktopFGColor{0, 255, 255};
+
+void DrawDesktop(PixelWriter &writer);

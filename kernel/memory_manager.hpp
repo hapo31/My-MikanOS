@@ -51,7 +51,8 @@ class BitmapMemoryManager {
   void SetMemoryRange(FrameID range_begin, FrameID range_end);
 
  private:
-  std::array<MapLineType, kFrameCount / kBitsPerMapLine> alloc_map;
+  static const auto allocMapSize = kFrameCount / kBitsPerMapLine;
+  std::array<MapLineType, allocMapSize> alloc_map;
 
   FrameID range_begin;
   FrameID range_end;
@@ -59,3 +60,5 @@ class BitmapMemoryManager {
   bool GetBit(FrameID frame) const;
   void SetBit(FrameID frame, bool allocated);
 };
+
+Error InitializeHeap(BitmapMemoryManager& memory_manager);

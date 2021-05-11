@@ -1,4 +1,3 @@
-
 #include "memory_manager.hpp"
 
 BitmapMemoryManager::BitmapMemoryManager()
@@ -13,7 +12,7 @@ WithError<FrameID> BitmapMemoryManager::Allocate(size_t num_frames) {
       if (start_frame_id + 1 >= range_end.ID()) {
         return {kNullFrame, MAKE_ERROR(Error::kNoEnoughMemory)};
       }
-      if (GetBit(FrameID{start_frame_id * i})) {
+      if (GetBit(FrameID{start_frame_id + i})) {
         break;
       }
       if (i == num_frames) {
@@ -64,4 +63,21 @@ void BitmapMemoryManager::SetBit(FrameID frame, bool allocated) {
   } else {
     alloc_map[line_index] &= ~(static_cast<MapLineType>(1) << bit_index);
   }
+}
+
+extern "C" caddr_t program_break, program_break_end;
+
+Error InitializeHeap(BitmapMemoryManager& memory_manager) {
+  const int kHeapFreams = 64 * 512;
+  const auto heap_start = memory_manager.Allocate(kHeapFreams);
+  if (heap_start.error) {
+    return heap_start.error;
+  }
+
+  program_break =
+      reinterpret_cast<caddr_t>(heap_start.value.ID() * kBytesPerFrame);
+
+  program_break_end = program_break + kHeapFreams * kBytesPerFrame;
+
+  return MAKE_ERROR(Error::kSuccess);
 }
