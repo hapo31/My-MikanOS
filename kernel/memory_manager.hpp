@@ -51,8 +51,8 @@ class BitmapMemoryManager {
   void SetMemoryRange(FrameID range_begin, FrameID range_end);
 
  private:
-  static const auto allocMapSize = kFrameCount / kBitsPerMapLine;
-  std::array<MapLineType, allocMapSize> alloc_map;
+  static const auto kAllocMapSize = kFrameCount / kBitsPerMapLine;
+  std::array<MapLineType, kAllocMapSize> alloc_map;
 
   FrameID range_begin;
   FrameID range_end;

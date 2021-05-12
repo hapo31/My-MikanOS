@@ -4,6 +4,11 @@
 
 Layer::Layer(unsigned int id_) : id(id_) {}
 
+Layer& Layer::Move(Vector2D<int> pos) {
+  this->pos = pos;
+  return *this;
+}
+
 Layer& Layer::MoveRelative(Vector2D<int> pos_diff) {
   pos += pos_diff;
   return *this;
@@ -13,11 +18,6 @@ void Layer::DrawTo(PixelWriter& writer) const {
   if (window) {
     window->DrawTo(writer, pos);
   }
-}
-
-Layer& Layer::Move(Vector2D<int> pos) {
-  this->pos = pos;
-  return *this;
 }
 
 void LayerManager::Draw() const {

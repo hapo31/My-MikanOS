@@ -135,27 +135,6 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   printk("Display info: %dx%d\n", config.horizontal_resolution,
          config.vertical_resolution);
 
-  const std::array available_memory_types{
-      MemoryType::kEfiBootServicesCode,
-      MemoryType::kEfiBootServicesData,
-      MemoryType::kEfiConversionalMemory,
-  };
-
-  printk("memory_map: %p\n", &memmap);
-  for (auto iter = reinterpret_cast<uintptr_t>(memmap.buffer);
-       iter < reinterpret_cast<uintptr_t>(memmap.buffer) + memmap.map_size;
-       iter += memmap.descriptor_size) {
-    auto desc = reinterpret_cast<MemoryDescriptor *>(iter);
-    for (int i = 0; i < available_memory_types.size(); ++i) {
-      if (desc->type == available_memory_types[i]) {
-        printk("type = %u, phys = %08lx - %08lx, pages = %lu, attr = %08lx\n",
-               desc->type, desc->physical_start,
-               desc->physical_start + desc->number_of_pages * 4096 - 1,
-               desc->number_of_pages, desc->attribute);
-      }
-    }
-  }
-
   SetupSegments();
 
   const uint16_t kernel_cs = 1 << 3;
@@ -167,14 +146,18 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   SetupIdentityPageTable();
 
   ::memory_manager = new (memory_manager_buf) BitmapMemoryManager;
-
   const auto memory_map_base = reinterpret_cast<uintptr_t>(memmap.buffer);
+
   uintptr_t available_end = 0;
+  uintptr_t physical_start = std::numeric_limits<uintptr_t>::max();
 
   for (uintptr_t iter = memory_map_base;
        iter < memory_map_base + memmap.map_size;
        iter += memmap.descriptor_size) {
     auto desc = reinterpret_cast<const MemoryDescriptor *>(iter);
+    if (desc->physical_start < physical_start) {
+      physical_start = desc->physical_start;
+    }
     if (available_end < desc->physical_start) {
       memory_manager->MarkAllocated(
           FrameID{available_end / kBytesPerFrame},
@@ -195,8 +178,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   memory_manager->SetMemoryRange(FrameID{1},
                                  FrameID{available_end / kBytesPerFrame});
 
-  printk("memory available_end : %p - %p = (%p)\n", memory_map_base,
-         available_end, available_end - memory_map_base);
+  printk("memory available_end : %p, range_end id: %u\n", available_end,
+         available_end / kBytesPerFrame);
 
   if (auto err = InitializeHeap(*memory_manager)) {
     Log(kError, "failed to allocate pages: %s at %s:%d\n", err.Name(),

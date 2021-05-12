@@ -1,5 +1,7 @@
 #include "memory_manager.hpp"
 
+#include "logger.hpp"
+
 BitmapMemoryManager::BitmapMemoryManager()
     : alloc_map{}, range_begin{FrameID{0}}, range_end{FrameID{kFrameCount}} {}
 
@@ -15,12 +17,11 @@ WithError<FrameID> BitmapMemoryManager::Allocate(size_t num_frames) {
       if (GetBit(FrameID{start_frame_id + i})) {
         break;
       }
-      if (i == num_frames) {
-        MarkAllocated(FrameID{start_frame_id}, num_frames);
-        return {FrameID{start_frame_id}, MAKE_ERROR(Error::kSuccess)};
-      }
     }
-
+    if (i == num_frames) {
+      MarkAllocated(FrameID{start_frame_id}, num_frames);
+      return {FrameID{start_frame_id}, MAKE_ERROR(Error::kSuccess)};
+    }
     start_frame_id += i + 1;
   }
 }
@@ -42,8 +43,8 @@ void BitmapMemoryManager::MarkAllocated(FrameID start_frame,
 
 void BitmapMemoryManager::SetMemoryRange(FrameID range_begin,
                                          FrameID range_end) {
-  range_begin = range_begin;
-  range_end = range_end;
+  this->range_begin = range_begin;
+  this->range_end = range_end;
 }
 
 bool BitmapMemoryManager::GetBit(FrameID frame) const {
