@@ -3,46 +3,34 @@
 #include <optional>
 #include <vector>
 
+#include "frame_buffer.hpp"
 #include "graphics.hpp"
 
-class Window {
+class Window : public PixelWriter {
  public:
-  class WindowWriter : public PixelWriter {
-   public:
-    WindowWriter(Window& window_) : window(window_) {}
-    virtual void Write(const PixelColor& color, int x, int y) override {
-      window.At(x, y) = color;
-    }
-
-    virtual int Width() const override { return window.Width(); }
-    virtual int Height() const override { return window.Height(); }
-
-   private:
-    Window& window;
-  };
-
-  Window(int width, int height);
+  Window(int width, int height, PixelFormat shadow_format);
   ~Window() = default;
 
   Window(const Window& rhs) = delete;
   Window& operator=(const Window& rhs) = delete;
 
-  void DrawTo(PixelWriter& writer, Vector2D<int> position);
+  void Write(const PixelColor& c, int x, int y) override;
+  int Width() const override { return width; }
+  int Height() const override { return height; }
+
+  void DrawTo(FrameBuffer& dest, Vector2D<int> position);
   void SetTrasparentColor(std::optional<PixelColor> c) {
     transparent_color = c;
   }
 
-  WindowWriter* Writer() { return &writer; }
   PixelColor& At(int x, int y) { return data[y][x]; }
   const PixelColor& At(int x, int y) const { return data[y][x]; }
-
-  int Width() const { return width; }
-  int Height() const { return height; }
 
  private:
   int width, height;
 
   std::vector<std::vector<PixelColor>> data{};
-  WindowWriter writer{*this};
   std::optional<PixelColor> transparent_color{std::nullopt};
+
+  FrameBuffer shadow_buffer{};
 };

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdio>
+#include <string>
 
 class Error {
  public:
@@ -27,6 +28,7 @@ class Error {
     kUnknownXHCISpeedID,
     kNoWaiter,
     kNoPCIMSI,
+    kUnknownPixelFormat,
     kLastOfCode,  // この列挙子は常に最後に配置する
   };
 
@@ -52,6 +54,7 @@ class Error {
       "kInvalidPhase",
       "kUnknownXHCISpeedID",
       "kNoWaiter",
+      "kUnknownPixelFormat",
       "kNoPCIMSI",
   };
   static_assert(Error::Code::kLastOfCode == code_names_.size());

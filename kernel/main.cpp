@@ -9,7 +9,7 @@
 #include "asmfunc.h"
 #include "console.hpp"
 #include "font.hpp"
-#include "frame_buffer.hpp"
+#include "frame_buffer_config.hpp"
 #include "graphics.hpp"
 #include "interrupt.hpp"
 #include "layer.hpp"
@@ -21,6 +21,7 @@
 #include "pci.hpp"
 #include "queue.hpp"
 #include "segment.hpp"
+#include "timer.hpp"
 #include "usb/classdriver/mouse.hpp"
 #include "usb/device.hpp"
 #include "usb/memory.hpp"
@@ -85,7 +86,11 @@ unsigned int mouse_layer_id;
 
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
   layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
+  StartLAPICTimer();
   layer_manager->Draw();
+  auto elapsed = LAPICTimerElapased();
+  StopLAPICTimer();
+  printk("MouseObserver: elapsed = %u\n", elapsed);
 }
 
 void SwitchEhci2Xhci(const pci::Device &xhcDev) {
@@ -111,14 +116,17 @@ void SwitchEhci2Xhci(const pci::Device &xhcDev) {
       ehci2xhci_ports);
 }
 
+std::string CreateErrorMessage(const std::string &message, const Error &err) {
+  return message + ":" + err.Name() + " at " + err.File() + ":" +
+         std::to_string(err.Line()) + "\n";
+}
+
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
 extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
                                    const MemoryMap &memmap_ref) {
   const FrameBufferConfig config{config_ref};
   const MemoryMap memmap{memmap_ref};
-
-  uint8_t *frame_buffer = reinterpret_cast<uint8_t *>(config.frame_buffer);
 
   const int kFrameWidth = config.horizontal_resolution;
   const int kFrameHeight = config.vertical_resolution;
@@ -134,6 +142,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   printk("Welcome to fuckOS!\n");
   printk("Display info: %dx%d\n", config.horizontal_resolution,
          config.vertical_resolution);
+
+  InitializeAPICTimer();
 
   SetupSegments();
 
@@ -208,7 +218,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     }
   }
 
-  SetLogLevel(kDebug);
+  SetLogLevel(kInfo);
 
   if (xhcDev) {
     Log(kInfo, "xHC has been found: %d.%d.%d\n", xhcDev->bus, xhcDev->device,
@@ -270,20 +280,28 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     }
   }
 
-  auto bgWindow = std::make_shared<Window>(kFrameWidth, kFrameHeight);
-  auto bgWriter = bgWindow->Writer();
+  auto bgWindow =
+      std::make_shared<Window>(kFrameWidth, kFrameHeight, config.pixel_format);
+  auto bgWriter = bgWindow.get();
 
   DrawDesktop(*bgWriter);
   console->SetWriter(bgWriter);
 
-  auto mouse_window =
-      std::make_shared<Window>(kMouseCursorWidth, kMouseCursorHeight);
+  auto mouse_window = std::make_shared<Window>(
+      kMouseCursorWidth, kMouseCursorHeight, config.pixel_format);
 
   mouse_window->SetTrasparentColor(kMouseTransparentColor);
-  DrawMouseCursor(mouse_window->Writer(), {0, 0});
+  DrawMouseCursor(mouse_window.get(), {0, 0});
+
+  FrameBuffer frame_buffer;
+  if (auto err = frame_buffer.Initialize(config)) {
+    Log(kError,
+        CreateErrorMessage("failed to initialize frame_buffer", err).c_str());
+    exit(1);
+  }
 
   layer_manager = new LayerManager;
-  layer_manager->SetWriter(pixel_writer);
+  layer_manager->SetFrameBuffer(&frame_buffer);
 
   auto bglayer_id =
       layer_manager->NewLayer().SetWindow(bgWindow).Move({0, 0}).ID();

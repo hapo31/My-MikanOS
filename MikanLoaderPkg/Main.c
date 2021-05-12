@@ -11,7 +11,7 @@
 #include <Uefi.h>
 
 #include "elf.hpp"
-#include "frame_buffer.hpp"
+#include "frame_buffer_config.hpp"
 #include "memory_map.hpp"
 
 extern EFI_GUID gEfiGraphicsOutputProtocolGuid;

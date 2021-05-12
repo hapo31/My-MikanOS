@@ -1,5 +1,5 @@
 #pragma once
-#include "frame_buffer.hpp"
+#include "frame_buffer_config.hpp"
 
 struct PixelColor {
   uint8_t r, g, b;
@@ -25,10 +25,19 @@ struct Vector2D {
   }
 };
 
+template <typename T, typename U>
+auto operator+(const Vector2D<T> &lhs, const Vector2D<U> &rhs)
+    -> Vector2D<decltype(lhs.x + rhs.x)> {
+  return {lhs.x + rhs.x, lhs.y + rhs.y};
+}
+
 class PixelWriter {
  public:
   virtual ~PixelWriter() = default;
   virtual void Write(const PixelColor &color, int x, int y) = 0;
+  void Write(const PixelColor &color, Vector2D<int> pos) {
+    Write(color, pos.x, pos.y);
+  }
   virtual int Width() const = 0;
   virtual int Height() const = 0;
 };

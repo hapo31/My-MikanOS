@@ -21,7 +21,7 @@ class Layer {
 
   Layer& Move(Vector2D<int> pos);
   Layer& MoveRelative(Vector2D<int> pos_diff);
-  void DrawTo(PixelWriter& writer) const;
+  void DrawTo(FrameBuffer& screen) const;
 
  private:
   unsigned int id;
@@ -31,7 +31,7 @@ class Layer {
 
 class LayerManager {
  public:
-  void SetWriter(PixelWriter* writer) { this->writer = writer; }
+  void SetFrameBuffer(FrameBuffer* screen) { this->screen = screen; }
 
   Layer& NewLayer() {
     ++latest_id;
@@ -48,7 +48,7 @@ class LayerManager {
   void Hide(unsigned int id);
 
  private:
-  PixelWriter* writer{nullptr};
+  FrameBuffer* screen{nullptr};
 
   std::vector<std::unique_ptr<Layer>> layers{};
   std::vector<Layer*> layer_stack{};

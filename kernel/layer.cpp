@@ -14,15 +14,15 @@ Layer& Layer::MoveRelative(Vector2D<int> pos_diff) {
   return *this;
 }
 
-void Layer::DrawTo(PixelWriter& writer) const {
+void Layer::DrawTo(FrameBuffer& screen) const {
   if (window) {
-    window->DrawTo(writer, pos);
+    window->DrawTo(screen, pos);
   }
 }
 
 void LayerManager::Draw() const {
   for (auto layer : layer_stack) {
-    layer->DrawTo(*writer);
+    layer->DrawTo(*screen);
   }
 }
 

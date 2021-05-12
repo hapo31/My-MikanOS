@@ -6,7 +6,6 @@
     "uefi.h": "c",
     "uefilib.h": "c",
     "loadedimage.h": "c",
-    "frame_buffer.hpp": "c",
     "array": "cpp",
     "atomic": "cpp",
     "*.tcc": "cpp",
@@ -52,7 +51,8 @@
     "streambuf": "cpp",
     "typeinfo": "cpp",
     "bit": "cpp",
-    "memory_map.hpp": "c"
+    "__split_buffer": "cpp",
+    "future": "cpp"
   },
   "editor.defaultFormatter": "ms-vscode.cpptools",
   "editor.formatOnSave": true,

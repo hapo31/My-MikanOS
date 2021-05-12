@@ -1,17 +1,23 @@
 #pragma once
 
-#include <stdint.h>
+#include <memory>
+#include <vector>
 
-enum PixelFormat
-{
-  kPixelRGBResv8BitPerColor,
-  kPixelBGRResv8BitPerColor,
+#include "error.hpp"
+#include "frame_buffer_config.hpp"
+#include "graphics.hpp"
+
+class FrameBuffer {
+ public:
+  Error Initialize(const FrameBufferConfig& conifg);
+  Error Copy(Vector2D<int> pos, const FrameBuffer& src);
+
+  FrameBufferWriter& Writer() { return *writer; }
+
+ private:
+  FrameBufferConfig config{};
+  std::vector<uint8_t> buffer{};
+  std::unique_ptr<FrameBufferWriter> writer{};
 };
 
-struct FrameBufferConfig { 
-  uint8_t* frame_buffer;
-  uint32_t pixels_per_scan_line;
-  uint32_t horizontal_resolution;
-  uint32_t vertical_resolution;
-  enum PixelFormat pixel_format;
-};
+int BitsPerPixel(PixelFormat format);

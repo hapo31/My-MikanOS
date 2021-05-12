@@ -1,29 +1,45 @@
 #include "window.hpp"
 
-Window::Window(int width_, int height_) : width(width_), height(height_) {
+#include "logger.hpp"
+
+Window::Window(int width_, int height_, PixelFormat shadow_format)
+    : width{width_}, height{height_} {
   data.resize(height);
   for (int y = 0; y < height; ++y) {
     data[y].resize(width);
   }
+
+  FrameBufferConfig config{};
+  config.frame_buffer = nullptr;
+  config.horizontal_resolution = width;
+  config.vertical_resolution = height;
+  config.pixel_format = shadow_format;
+
+  if (auto err = shadow_buffer.Initialize(config)) {
+    Log(kError, "failed to initialize shadow buffer: %s at %s:%d\n", err.Name(),
+        err.File(), err.Line());
+  }
 }
 
-void Window::DrawTo(PixelWriter& writer, Vector2D<int> position) {
+void Window::DrawTo(FrameBuffer& dest, Vector2D<int> position) {
   if (!transparent_color) {
-    for (int y = 0; y < Height(); ++y) {
-      for (int x = 0; x < Width(); ++x) {
-        writer.Write(At(position.x + x, position.y + y), x, y);
-      }
-    }
+    dest.Copy(position, shadow_buffer);
     return;
   }
 
   const auto tc = transparent_color.value();
+  auto& writer = dest.Writer();
   for (int y = 0; y < Height(); ++y) {
     for (int x = 0; x < Width(); ++x) {
       const auto c = At(x, y);
       if (c != tc) {
-        writer.Write(c, position.x + x, position.y + y);
+        writer.Write(c, position + Vector2D<int>{x, y});
       }
     }
   }
+}
+
+void Window::Write(const PixelColor& c, int x, int y) {
+  data[y][x] = c;
+  shadow_buffer.Writer().Write(c, x, y);
 }
