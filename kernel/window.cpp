@@ -43,3 +43,7 @@ void Window::Write(const PixelColor& c, int x, int y) {
   data[y][x] = c;
   shadow_buffer.Writer().Write(c, x, y);
 }
+
+void Window::Move(Vector2D<int> dest_pos, const Rectangle<int>& src) {
+  shadow_buffer.Move(dest_pos, src);
+}

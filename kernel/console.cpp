@@ -39,13 +39,15 @@ void Console::NewLine() {
   cursorColumns = 0;
   if (cursorRow < kRows - 1) {
     ++cursorRow;
-  } else {
-    for (int y = 0; y < 16 * kRows; ++y) {
-      for (int x = 0; x < 8 * kColumns; ++x) {
-        writer->Write(bgColor, x, y);
-      }
-    }
+    return;
+  }
 
+  if (window) {
+    Rectangle<int> move_src{{0, 16}, {8 * kColumns, 16 * (kRows - 1)}};
+    window->Move({0, 0}, move_src);
+    FillRect(*writer, {0, 16 * (kRows - 1)}, {8 * kColumns, 16}, bgColor);
+  } else {
+    FillRect(*writer, {0, 0}, {8 * kColumns, 16 * kRows}, bgColor);
     for (int row = 0; row < kRows - 1; ++row) {
       memcpy(buffer[row], buffer[row + 1], kColumns + 1);
       WriteString(writer, 0, 16 * row, fgColor, buffer[row]);

@@ -1,6 +1,8 @@
 #pragma once
+#include <memory>
 
 #include "graphics.hpp"
+#include "window.hpp"
 
 class Console {
  public:
@@ -9,6 +11,9 @@ class Console {
           const PixelColor &bgColor);
   void PutString(const char *a);
   void SetWriter(PixelWriter *writer);
+  void SetWindow(const std::shared_ptr<Window> &window) {
+    this->window = window;
+  }
 
  private:
   void NewLine();
@@ -18,4 +23,6 @@ class Console {
   char buffer[kRows][kColumns + 1];
   int cursorRow;
   int cursorColumns;
+
+  std::shared_ptr<Window> window;
 };
