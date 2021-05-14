@@ -3,10 +3,10 @@
 #include <cstring>
 
 #include "font.hpp"
+#include "layer.hpp"
 
-Console::Console(PixelWriter *writer_, const PixelColor &fgColor_,
-                 const PixelColor &bgColor_)
-    : writer(writer_),
+Console::Console(const PixelColor &fgColor_, const PixelColor &bgColor_)
+    : writer(nullptr),
       fgColor(fgColor_),
       bgColor(bgColor_),
       buffer{},
@@ -24,6 +24,9 @@ void Console::PutString(const char *str) {
     }
     ++str;
   }
+  if (layer_manager) {
+    layer_manager->Draw();
+  }
 }
 
 void Console::SetWriter(PixelWriter *writer) {
@@ -32,6 +35,16 @@ void Console::SetWriter(PixelWriter *writer) {
   }
 
   this->writer = writer;
+  window.reset();
+  Refresh();
+}
+
+void Console::SetWindow(const std::shared_ptr<Window> &window) {
+  if (this->window == window) {
+    return;
+  }
+  this->window = window;
+  writer = window.get();
   Refresh();
 }
 

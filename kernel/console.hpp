@@ -7,13 +7,10 @@
 class Console {
  public:
   static const int kRows = 30, kColumns = 80;
-  Console(PixelWriter *writer, const PixelColor &fgColor,
-          const PixelColor &bgColor);
+  Console(const PixelColor &fgColor, const PixelColor &bgColor);
   void PutString(const char *a);
   void SetWriter(PixelWriter *writer);
-  void SetWindow(const std::shared_ptr<Window> &window) {
-    this->window = window;
-  }
+  void SetWindow(const std::shared_ptr<Window> &window);
 
  private:
   void NewLine();

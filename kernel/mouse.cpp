@@ -18,6 +18,8 @@ void DrawMouseCursor(PixelWriter* writer, Vector2D<int> position) {
         writer->Write({0, 0, 0}, position.x + dx, position.y + dy);
       } else if (mouse_cousor_shape[dy][dx] == '.') {
         writer->Write({255, 255, 255}, position.x + dx, position.y + dy);
+      } else {
+        writer->Write(kMouseTransparentColor, position + Vector2D<int>{dx, dy});
       }
     }
   }

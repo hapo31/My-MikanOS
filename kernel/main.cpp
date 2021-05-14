@@ -29,6 +29,8 @@
 #include "usb/xhci/xhci.hpp"
 #include "window.hpp"
 
+#pragma region ユーティリティ関数
+
 struct Message {
   enum Type {
     kInterruptXHCI,
@@ -91,7 +93,7 @@ unsigned int mouse_layer_id;
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
   layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
   layer_manager->Draw();
-  printk("MouseObserver: (%u,%u)\n", displacement_x, displacement_y);
+  Log(kDebug, "MouseObserver: (%d,%d)\n", displacement_x, displacement_y);
 }
 
 void SwitchEhci2Xhci(const pci::Device &xhcDev) {
@@ -122,6 +124,8 @@ std::string CreateErrorMessage(const std::string &message, const Error &err) {
          std::to_string(err.Line()) + "\n";
 }
 
+#pragma endregion
+
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
 extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
@@ -136,9 +140,17 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   DrawDesktop(*pixel_writer);
 
-  console = new (console_buf) Console(writer, {200, 200, 200}, kDesktopBGColor);
+  console = new (console_buf) Console({200, 200, 200}, kDesktopBGColor);
 
   console->SetWriter(pixel_writer);
+
+  /*
+    ログレベルの設定
+    kInfo: それっぽいやつだけ
+    kDebug: 全部
+    kError: エラー
+  */
+  SetLogLevel(kInfo);
 
   printk("Welcome to fuckOS!\n");
   printk("Display info: %dx%d\n", config.horizontal_resolution,
@@ -146,6 +158,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   InitializeAPICTimer();
 
+#pragma region セグメントレジスタの初期化
   SetupSegments();
 
   const uint16_t kernel_cs = 1 << 3;
@@ -155,6 +168,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   SetCSSS(kernel_cs, kernel_ss);
 
   SetupIdentityPageTable();
+
+#pragma region メモリ管理初期化
 
   ::memory_manager = new (memory_manager_buf) BitmapMemoryManager;
   const auto memory_map_base = reinterpret_cast<uintptr_t>(memmap.buffer);
@@ -198,6 +213,10 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     exit(1);
   }
 
+#pragma endregion
+
+#pragma region xHCの初期化
+
   auto err = pci::ScanAllBus();
   printk("ScanAllBus: %s\n", err.Name());
 
@@ -219,17 +238,22 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     }
   }
 
-  SetLogLevel(kInfo);
-
   if (xhcDev) {
     Log(kInfo, "xHC has been found: %d.%d.%d\n", xhcDev->bus, xhcDev->device,
         xhcDev->function);
   }
 
+#pragma endregion
+
+#pragma region メッセージキューの初期化
+
   std::array<Message, 32> main_queue_data;
   ArrayQueue<Message> main_queue{main_queue_data};
   ::main_queue = &main_queue;
 
+#pragma endregion
+
+#pragma region マウス割り込みの設定と起動
   const uint16_t cs = GetCS();
 
   SetIDTEntry(idt[InterruptVector::kXHCI],
@@ -268,6 +292,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   __asm__("sti");
 
   usb::HIDMouseDriver::default_observer = MouseObserver;
+#pragma endregion
 
   for (int i = 1; i <= xhc.MaxPorts(); ++i) {
     auto port = xhc.PortAt(i);
@@ -281,12 +306,14 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     }
   }
 
+#pragma region レイヤー、ウインドウの初期化
+
   auto bgWindow =
       std::make_shared<Window>(kFrameWidth, kFrameHeight, config.pixel_format);
   auto bgWriter = bgWindow.get();
 
   DrawDesktop(*bgWriter);
-  console->SetWriter(bgWriter);
+  console->SetWindow(bgWindow);
 
   auto mouse_window = std::make_shared<Window>(
       kMouseCursorWidth, kMouseCursorHeight, config.pixel_format);
@@ -314,6 +341,10 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   layer_manager->UpDown(mouse_layer_id, 1);
   layer_manager->Draw();
 
+#pragma endregion
+
+#pragma region メッセージループ
+
   for (;;) {
     __asm__("cli");
     if (main_queue.Count() == 0) {
@@ -338,6 +369,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
         Log(kError, "Unknown message type: %d\n", msg.type);
     }
   }
+
+#pragma endregion
 
   while (1) __asm__("hlt");
 }

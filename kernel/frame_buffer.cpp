@@ -36,16 +36,15 @@ Vector2D<int> FrameBufferSize(const FrameBufferConfig& config) {
 Error FrameBuffer::Initialize(const FrameBufferConfig& config) {
   this->config = config;
 
-  const auto bits_per_pixel = BitsPerPixel(config.pixel_format);
-  if (bits_per_pixel <= 0) {
+  const auto bytes_per_pixel = BytesPerPixel(config.pixel_format);
+  if (bytes_per_pixel <= 0) {
     return MAKE_ERROR(Error::kUnknownPixelFormat);
   }
 
   if (config.frame_buffer) {
     buffer.resize(0);
   } else {
-    buffer.resize(((bits_per_pixel + 7) / 8) *
-                  this->config.horizontal_resolution *
+    buffer.resize(bytes_per_pixel * this->config.horizontal_resolution *
                   this->config.vertical_resolution);
 
     this->config.frame_buffer = buffer.data();
@@ -116,19 +115,9 @@ void FrameBuffer::Move(Vector2D<int> dest_pos, const Rectangle<int>& src) {
     const uint8_t* src_buf =
         FrameAddrAt(src.pos + Vector2D<int>{0, src.size.y - 1}, config);
     for (int y = 0; y < src.size.y; ++y) {
+      memcpy(dest_buf, src_buf, bytes_per_pixel * src.size.x);
       dest_buf -= bytes_per_scan_line;
       src_buf -= bytes_per_scan_line;
     }
   }
-}
-
-int BitsPerPixel(PixelFormat format) {
-  switch (format) {
-    case kPixelRGBResv8BitPerColor:
-      return 32;
-    case kPixelBGRResv8BitPerColor:
-      return 32;
-  }
-
-  return -1;
 }
