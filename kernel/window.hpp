@@ -20,7 +20,10 @@ class Window : public PixelWriter {
   int Width() const override { return width; }
   int Height() const override { return height; }
 
-  void DrawTo(FrameBuffer& dest, Vector2D<int> position);
+  Vector2D<int> Size() const { return {width, height}; }
+
+  void DrawTo(FrameBuffer& dest, Vector2D<int> position,
+              const Rectangle<int>& area);
   void SetTrasparentColor(std::optional<PixelColor> c) {
     transparent_color = c;
   }
@@ -36,3 +39,5 @@ class Window : public PixelWriter {
 
   FrameBuffer shadow_buffer{};
 };
+
+void DrawWindow(PixelWriter& writer, const char* title);

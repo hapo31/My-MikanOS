@@ -18,14 +18,14 @@ void Console::PutString(const char *str) {
     if (*str == '\n') {
       NewLine();
     } else if (cursorColumns < kColumns - 1) {
-      WriteAscii(writer, 8 * cursorColumns, 16 * cursorRow, fgColor, *str);
+      WriteAscii(*writer, 8 * cursorColumns, 16 * cursorRow, fgColor, *str);
       buffer[cursorRow][cursorColumns] = *str;
       ++cursorColumns;
     }
     ++str;
   }
   if (layer_manager) {
-    layer_manager->Draw();
+    layer_manager->Draw(this->layer_id);
   }
 }
 
@@ -63,7 +63,7 @@ void Console::NewLine() {
     FillRect(*writer, {0, 0}, {8 * kColumns, 16 * kRows}, bgColor);
     for (int row = 0; row < kRows - 1; ++row) {
       memcpy(buffer[row], buffer[row + 1], kColumns + 1);
-      WriteString(writer, 0, 16 * row, fgColor, buffer[row]);
+      WriteString(*writer, 0, 16 * row, fgColor, buffer[row]);
     }
     memset(buffer[kRows - 1], 0, kColumns + 1);
   }
@@ -71,6 +71,6 @@ void Console::NewLine() {
 
 void Console::Refresh() {
   for (int row = 0; row < kRows; ++row) {
-    WriteString(writer, 0, 16 * row, fgColor, buffer[row]);
+    WriteString(*writer, 0, 16 * row, fgColor, buffer[row]);
   }
 }

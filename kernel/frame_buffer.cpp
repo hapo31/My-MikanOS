@@ -2,8 +2,6 @@
 
 #include <cstring>
 
-#include "logger.hpp"
-
 namespace {
 int BytesPerPixel(PixelFormat format) {
   switch (format) {
@@ -51,10 +49,6 @@ Error FrameBuffer::Initialize(const FrameBufferConfig& config) {
     this->config.pixels_per_scan_line = this->config.horizontal_resolution;
   }
 
-  Log(kInfo, "width:%u, height:%u pixels_per_scan_line:%u\n",
-      this->config.horizontal_resolution, this->config.vertical_resolution,
-      this->config.pixels_per_scan_line);
-
   switch (this->config.pixel_format) {
     case kPixelRGBResv8BitPerColor:
       writer = std::make_unique<RGBResv8BitPerColorPixelWriter>(this->config);
@@ -62,7 +56,6 @@ Error FrameBuffer::Initialize(const FrameBufferConfig& config) {
     case kPixelBGRResv8BitPerColor:
       writer = std::make_unique<BGRResv8BitPerColorPixelWriter>(this->config);
       break;
-
     default:
       return MAKE_ERROR(Error::kUnknownPixelFormat);
   }
@@ -70,7 +63,8 @@ Error FrameBuffer::Initialize(const FrameBufferConfig& config) {
   return MAKE_ERROR(Error::kSuccess);
 }
 
-Error FrameBuffer::Copy(Vector2D<int> pos, const FrameBuffer& src) {
+Error FrameBuffer::Copy(Vector2D<int> pos, const FrameBuffer& src,
+                        const Rectangle<int>& src_area) {
   if (config.pixel_format != src.config.pixel_format) {
     return MAKE_ERROR(Error::kUnknownPixelFormat);
   }
@@ -80,17 +74,19 @@ Error FrameBuffer::Copy(Vector2D<int> pos, const FrameBuffer& src) {
     return MAKE_ERROR(Error::kUnknownPixelFormat);
   }
 
-  const auto dest_size = FrameBufferSize(config);
-  const auto src_size = FrameBufferSize(src.config);
+  const Rectangle<int> src_area_shifted{pos, src_area.size};
+  const Rectangle<int> src_outline{pos - src_area.pos,
+                                   FrameBufferSize(src.config)};
+  const Rectangle<int> dest_outline{{0, 0}, FrameBufferSize(config)};
 
-  const Vector2D<int> dest_start = ElementMax(pos, {0, 0});
-  const Vector2D<int> dest_end = ElementMin(pos + src_size, dest_size);
+  const auto copy_area = dest_outline & src_outline & src_area_shifted;
+  const auto src_start_pos = copy_area.pos - (pos - src_area.pos);
 
-  uint8_t* dest_buf = FrameAddrAt(dest_start, config);
-  const uint8_t* src_buf = FrameAddrAt({0, 0}, src.config);
+  uint8_t* dest_buf = FrameAddrAt(copy_area.pos, config);
+  const uint8_t* src_buf = FrameAddrAt(src_start_pos, src.config);
 
-  for (int dy = dest_start.y; dy < dest_end.y; ++dy) {
-    memcpy(dest_buf, src_buf, bytes_per_pixel * (dest_end.x - dest_start.x));
+  for (int dy = 0; dy < copy_area.size.y; ++dy) {
+    memcpy(dest_buf, src_buf, bytes_per_pixel * copy_area.size.x);
     dest_buf += BytesPerScanLine(config);
     src_buf += BytesPerScanLine(src.config);
   }
@@ -101,6 +97,7 @@ Error FrameBuffer::Copy(Vector2D<int> pos, const FrameBuffer& src) {
 void FrameBuffer::Move(Vector2D<int> dest_pos, const Rectangle<int>& src) {
   const auto bytes_per_pixel = BytesPerPixel(config.pixel_format);
   const auto bytes_per_scan_line = BytesPerScanLine(config);
+
   if (dest_pos.y < src.pos.y) {
     uint8_t* dest_buf = FrameAddrAt(dest_pos, config);
     const uint8_t* src_buf = FrameAddrAt(src.pos, config);

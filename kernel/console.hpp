@@ -11,6 +11,8 @@ class Console {
   void PutString(const char *a);
   void SetWriter(PixelWriter *writer);
   void SetWindow(const std::shared_ptr<Window> &window);
+  void SetLayerID(unsigned int id) { layer_id = id; }
+  unsigned int LayerID() const;
 
  private:
   void NewLine();
@@ -20,6 +22,7 @@ class Console {
   char buffer[kRows][kColumns + 1];
   int cursorRow;
   int cursorColumns;
+  unsigned int layer_id;
 
   std::shared_ptr<Window> window;
 };

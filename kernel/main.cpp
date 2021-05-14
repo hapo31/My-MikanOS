@@ -78,21 +78,22 @@ int printk(const char *format, ...) {
   va_start(ap, format);
   result = vsprintf(s, format, ap);
   va_end(ap);
-
-  StartLAPICTimer();
-  console->PutString(s);
-  auto elapsed = LAPICTimerElapased();
-  StopLAPICTimer();
-  sprintf(s, "printk: elapsed = %u\n", elapsed);
   console->PutString(s);
   return result;
 }
 
 unsigned int mouse_layer_id;
+Vector2D<int> screen_size;
+Vector2D<int> mouse_position;
 
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
-  layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
-  layer_manager->Draw();
+  auto new_pos = mouse_position + Vector2D<int>{displacement_x, displacement_y};
+  new_pos = ElementMin(new_pos, screen_size + Vector2D<int>{-1, -1});
+  mouse_position = ElementMax(new_pos, {0, 0});
+
+  layer_manager->Move(mouse_layer_id, mouse_position);
+  layer_manager->Draw(
+      {mouse_position, {kMouseCursorWidth, kMouseCursorHeight}});
   Log(kDebug, "MouseObserver: (%d,%d)\n", displacement_x, displacement_y);
 }
 
@@ -133,8 +134,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   const FrameBufferConfig config{config_ref};
   const MemoryMap memmap{memmap_ref};
 
-  const int kFrameWidth = config.horizontal_resolution;
-  const int kFrameHeight = config.vertical_resolution;
+  screen_size = {static_cast<int>(config.horizontal_resolution),
+                 static_cast<int>(config.vertical_resolution)};
 
   auto writer = CreateFrameWriter(&config);
 
@@ -150,13 +151,11 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     kDebug: 全部
     kError: エラー
   */
-  SetLogLevel(kInfo);
+  SetLogLevel(kDebug);
 
   printk("Welcome to fuckOS!\n");
   printk("Display info: %dx%d\n", config.horizontal_resolution,
          config.vertical_resolution);
-
-  InitializeAPICTimer();
 
 #pragma region セグメントレジスタの初期化
   SetupSegments();
@@ -175,15 +174,11 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   const auto memory_map_base = reinterpret_cast<uintptr_t>(memmap.buffer);
 
   uintptr_t available_end = 0;
-  uintptr_t physical_start = std::numeric_limits<uintptr_t>::max();
 
   for (uintptr_t iter = memory_map_base;
        iter < memory_map_base + memmap.map_size;
        iter += memmap.descriptor_size) {
     auto desc = reinterpret_cast<const MemoryDescriptor *>(iter);
-    if (desc->physical_start < physical_start) {
-      physical_start = desc->physical_start;
-    }
     if (available_end < desc->physical_start) {
       memory_manager->MarkAllocated(
           FrameID{available_end / kBytesPerFrame},
@@ -218,16 +213,16 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 #pragma region xHCの初期化
 
   auto err = pci::ScanAllBus();
-  printk("ScanAllBus: %s\n", err.Name());
+  Log(kDebug, "ScanAllBus: %s\n", err.Name());
 
   pci::Device *xhcDev = nullptr;
   for (int i = 0; i < pci::num_devices; ++i) {
     auto &dev = pci::devices[i];
     auto vendorId = pci::ReadVendorId(dev.bus, dev.device, dev.function);
     auto classCode = pci::ReadClassCode(dev.bus, dev.device, dev.function);
-    printk("%d.%d.%d: vendor %04x, class %02x%02x%02x, head %02x\n", dev.bus,
-           dev.device, dev.function, vendorId, classCode.base, classCode.sub,
-           classCode.interface, dev.header_type);
+    Log(kDebug, "%d.%d.%d: vendor %04x, class %02x%02x%02x, head %02x\n",
+        dev.bus, dev.device, dev.function, vendorId, classCode.base,
+        classCode.sub, classCode.interface, dev.header_type);
 
     if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x30u)) {
       xhcDev = &pci::devices[i];
@@ -308,18 +303,22 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
 #pragma region レイヤー、ウインドウの初期化
 
-  auto bgWindow =
-      std::make_shared<Window>(kFrameWidth, kFrameHeight, config.pixel_format);
-  auto bgWriter = bgWindow.get();
-
-  DrawDesktop(*bgWriter);
-  console->SetWindow(bgWindow);
-
+  auto bgWindow = std::make_shared<Window>(screen_size.x, screen_size.y,
+                                           config.pixel_format);
+  DrawDesktop(*bgWindow);
   auto mouse_window = std::make_shared<Window>(
       kMouseCursorWidth, kMouseCursorHeight, config.pixel_format);
 
+  mouse_position = {200, 200};
   mouse_window->SetTrasparentColor(kMouseTransparentColor);
-  DrawMouseCursor(mouse_window.get(), {0, 0});
+  DrawMouseCursor(*mouse_window, {0, 0});
+
+  auto main_window = std::make_shared<Window>(160, 52, config.pixel_format);
+  DrawWindow(*main_window, "MainWindow");
+
+  auto console_window = std::make_shared<Window>(
+      Console::kColumns * 8, Console::kRows * 16, config.pixel_format);
+  console->SetWindow(console_window);
 
   FrameBuffer frame_buffer;
   if (auto err = frame_buffer.Initialize(config)) {
@@ -333,19 +332,37 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   auto bglayer_id =
       layer_manager->NewLayer().SetWindow(bgWindow).Move({0, 0}).ID();
+  mouse_layer_id = layer_manager->NewLayer()
+                       .SetWindow(mouse_window)
+                       .Move(mouse_position)
+                       .ID();
+  auto main_window_layer_id =
+      layer_manager->NewLayer().SetWindow(main_window).Move({300, 300}).ID();
+  auto console_layer_id =
+      layer_manager->NewLayer().SetWindow(console_window).Move({0, 0}).ID();
 
-  mouse_layer_id =
-      layer_manager->NewLayer().SetWindow(mouse_window).Move({200, 200}).ID();
+  console->SetLayerID(console_layer_id);
 
   layer_manager->UpDown(bglayer_id, 0);
-  layer_manager->UpDown(mouse_layer_id, 1);
-  layer_manager->Draw();
+  layer_manager->UpDown(console_layer_id, 1);
+  layer_manager->UpDown(main_window_layer_id, 2);
+  layer_manager->UpDown(mouse_layer_id, 3);
+  layer_manager->Draw({{0, 0}, screen_size});
 
 #pragma endregion
+
+  char str[128];
+  unsigned int count = 0;
 
 #pragma region メッセージループ
 
   for (;;) {
+    ++count;
+    sprintf(str, "%010u", count);
+    FillRect(*main_window, {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
+    WriteString(*main_window, 24, 28, {0, 0, 0}, str);
+    layer_manager->Draw(main_window_layer_id);
+
     __asm__("cli");
     if (main_queue.Count() == 0) {
       __asm__("sti\n\thlt");
