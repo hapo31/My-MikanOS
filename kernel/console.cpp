@@ -71,6 +71,7 @@ void Console::NewLine() {
 }
 
 void Console::Refresh() {
+  FillRect(*writer, {0, 0}, {8 * kColumns, 16 * kRows}, bgColor);
   for (int row = 0; row < kRows; ++row) {
     WriteString(*writer, 0, 16 * row, fgColor, buffer[row]);
   }
