@@ -4,6 +4,10 @@
 
 #include "x86_descpritor.hpp"
 
+const uint16_t kKernelDS = 0u;
+const uint16_t kKernelCS = 1 << 3;
+const uint16_t kKernelSS = 2 << 3;
+
 union SegmentDescriptor {
   uint64_t data;
   struct {
@@ -32,3 +36,5 @@ void SetDataSegment(SegmentDescriptor& desc, DescriptorType type,
                     uint32_t limit);
 
 void SetupSegments();
+
+void InitializeSegmentation();

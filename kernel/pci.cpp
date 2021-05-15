@@ -284,3 +284,26 @@ Error ConfigureMSIFixedDestination(const Device& dev, uint8_t apic_id,
 }
 
 }  // namespace pci
+
+void InitializePCI() {
+  auto err = pci::ScanAllBus();
+  Log(kDebug, "ScanAllBus: %s\n", err.Name());
+
+  pci::Device* xhcDev = nullptr;
+  for (int i = 0; i < pci::num_devices; ++i) {
+    auto& dev = pci::devices[i];
+    auto vendorId = pci::ReadVendorId(dev.bus, dev.device, dev.function);
+    auto classCode = pci::ReadClassCode(dev.bus, dev.device, dev.function);
+    Log(kDebug, "%d.%d.%d: vendor %04x, class %02x%02x%02x, head %02x\n",
+        dev.bus, dev.device, dev.function, vendorId, classCode.base,
+        classCode.sub, classCode.interface, dev.header_type);
+
+    if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x30u)) {
+      xhcDev = &pci::devices[i];
+
+      if (pci::ReadVendorId(*xhcDev) == 0x8086) {
+        break;
+      }
+    }
+  }
+}

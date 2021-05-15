@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "console.hpp"
+#include "error.hpp"
 #include "logger.hpp"
 
 Layer::Layer(unsigned int id_) : id(id_) {}
@@ -141,4 +143,40 @@ Layer* LayerManager::FindLayerByPosition(Vector2D<int> pos,
   return *it;
 }
 
+namespace {
+FrameBuffer* screen;
+}
+
 LayerManager* layer_manager;
+
+void InitializeLayer() {
+  const auto screen_size = ScreenSize();
+  auto bgWindow = std::make_shared<Window>(screen_size.x, screen_size.y,
+                                           screen_config.pixel_format);
+  DrawDesktop(*bgWindow);
+
+  auto console_window = std::make_shared<Window>(
+      Console::kColumns * 8, Console::kRows * 16, screen_config.pixel_format);
+
+  console->SetWindow(console_window);
+
+  screen = new FrameBuffer();
+  if (auto err = screen->Initialize(screen_config)) {
+    Log(kError,
+        CreateErrorMessage("failed to initialize frame_buffer", err).c_str());
+    exit(1);
+  }
+
+  layer_manager = new LayerManager;
+  layer_manager->SetFrameBuffer(screen);
+
+  auto bglayer_id =
+      layer_manager->NewLayer().SetWindow(bgWindow).Move({0, 0}).ID();
+  auto console_layer_id =
+      layer_manager->NewLayer().SetWindow(console_window).Move({0, 0}).ID();
+
+  console->SetLayerID(console_layer_id);
+
+  layer_manager->UpDown(bglayer_id, 0);
+  layer_manager->UpDown(console_layer_id, 1);
+}

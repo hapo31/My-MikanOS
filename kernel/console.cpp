@@ -1,5 +1,6 @@
 #include "console.hpp"
 
+#include <cstdio>
 #include <cstring>
 
 #include "font.hpp"
@@ -73,4 +74,26 @@ void Console::Refresh() {
   for (int row = 0; row < kRows; ++row) {
     WriteString(*writer, 0, 16 * row, fgColor, buffer[row]);
   }
+}
+
+Console *console;
+
+namespace {
+char console_buf[sizeof(Console)];
+}  // namespace
+
+void InitializeConsole() {
+  console = new (console_buf) Console({200, 200, 200}, kDesktopBGColor);
+  console->SetWriter(::screen_writer);
+}
+
+int printk(const char *format, ...) {
+  va_list ap;
+  int result;
+  char s[1024];
+  va_start(ap, format);
+  result = vsprintf(s, format, ap);
+  va_end(ap);
+  console->PutString(s);
+  return result;
 }

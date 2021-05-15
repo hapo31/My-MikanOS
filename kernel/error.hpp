@@ -89,3 +89,5 @@ struct WithError {
   T value;
   Error error;
 };
+
+std::string CreateErrorMessage(const std::string& message, const Error& err);

@@ -1,5 +1,8 @@
 #include "interrupt.hpp"
 
+#include "asmfunc.h"
+#include "segment.hpp"
+
 std::array<InterruptDescriptor, 256> idt;
 
 void NotifyEndOfInterrupt() {
@@ -14,4 +17,21 @@ void SetIDTEntry(InterruptDescriptor& desc, InterruptDesriptorAttribute attr,
   desc.offset_middle = (offset >> 16) & 0xffffu;
   desc.offset_high = offset >> 32;
   desc.segment_selector = segment_selector;
+}
+
+namespace {
+std::deque<Message>* msg_queue;
+__attribute__((interrupt)) void IntHandlerXHCI(InterruptFrame* frame) {
+  msg_queue->emplace_back(Message{Message::kInterruptXHCI});
+  NotifyEndOfInterrupt();
+}
+}  // namespace
+
+void InitializeInterrupt(std::deque<Message>* msg_queue) {
+  ::msg_queue = msg_queue;
+  SetIDTEntry(idt[InterruptVector::kXHCI],
+              MakeIDTAttr(InterruptDescriptorType::kInterruptGate, 0),
+              reinterpret_cast<uint64_t>(IntHandlerXHCI), kKernelCS);
+  LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
+  __asm__("sti");
 }

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdio>
+#include <deque>
 
 enum class InterruptDescriptorType {
   kUpper8Bytes = 0,
@@ -11,6 +12,12 @@ enum class InterruptDescriptorType {
   kCallGate = 12,
   kInterruptGate = 14,
   kTrapGate = 15,
+};
+
+struct Message {
+  enum Type {
+    kInterruptXHCI,
+  } type;
 };
 
 union InterruptDesriptorAttribute {
@@ -63,3 +70,4 @@ struct InterruptFrame {
 };
 
 void NotifyEndOfInterrupt();
+void InitializeInterrupt(std::deque<Message>* msg_queue);

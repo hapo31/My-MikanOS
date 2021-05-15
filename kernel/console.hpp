@@ -26,3 +26,9 @@ class Console {
 
   std::shared_ptr<Window> window;
 };
+
+extern Console *console;
+
+void InitializeConsole();
+
+int printk(const char *format, ...);

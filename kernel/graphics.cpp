@@ -45,3 +45,34 @@ void DrawDesktop(PixelWriter& writer) {
   FillRect(writer, {0, height - 50}, {width / 5, 50}, {80, 80, 80});
   DrawRect(writer, {10, height - 40}, {30, 30}, {160, 160, 160});
 }
+
+PixelWriter* screen_writer;
+FrameBufferConfig screen_config;
+
+Vector2D<int> ScreenSize() {
+  return {static_cast<int>(screen_config.horizontal_resolution),
+          static_cast<int>(screen_config.vertical_resolution)};
+}
+
+namespace {
+char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
+
+PixelWriter* CreateFrameWriter(const FrameBufferConfig* config) {
+  switch (config->pixel_format) {
+    case kPixelRGBResv8BitPerColor:
+      return new (pixel_writer_buf) RGBResv8BitPerColorPixelWriter(*config);
+    case kPixelBGRResv8BitPerColor:
+      return new (pixel_writer_buf) BGRResv8BitPerColorPixelWriter(*config);
+
+    default:
+      exit(1);
+  }
+}
+}  // namespace
+
+void InitializeGraphics(const FrameBufferConfig& config) {
+  ::screen_config = config;
+
+  ::screen_writer = CreateFrameWriter(&config);
+  DrawDesktop(*screen_writer);
+}
