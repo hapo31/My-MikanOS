@@ -8,6 +8,7 @@
 #include <numeric>
 #include <vector>
 
+#include "acpi.hpp"
 #include "asmfunc.h"
 #include "console.hpp"
 #include "font.hpp"
@@ -54,7 +55,8 @@ void InitializeMainWindow() {
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
 extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
-                                   const MemoryMap &memmap_ref) {
+                                   const MemoryMap &memmap_ref,
+                                   const acpi::RSDP &acpi_table) {
   const FrameBufferConfig config{config_ref};
   const MemoryMap memmap{memmap_ref};
 
@@ -90,7 +92,9 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   layer_manager->Draw({{0, 0}, screen_size});
 
+  acpi::Initialize(acpi_table);
   InitializeLAPICTimer(*main_queue);
+
   timer_manager->AddTimer(Timer{200, 2});
   timer_manager->AddTimer(Timer(600, -1));
 

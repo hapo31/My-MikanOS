@@ -208,13 +208,6 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,
         gop->Mode->FrameBufferBase,
         gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
         gop->Mode->FrameBufferSize);
-
-  // UINT8 *frame_buffer = (UINT8 *)gop->Mode->FrameBufferBase;
-
-  // for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i) {
-  //   frame_buffer[i] = 255;
-  // }
-
   EFI_FILE_PROTOCOL *kernel_file;
   root_dir->Open(root_dir, &kernel_file, L"\\kernel.elf", EFI_FILE_MODE_READ,
                  0);
@@ -300,12 +293,21 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,
       Halt();
   }
 
+  VOID *acpi_table = NULL;
+  for (UINTN i = 0; i < system_table->NumberOfTableEntries; ++i) {
+    if (CompareGuid(&gEfiAcpiTableGuid,
+                    &system_table->ConfigurationTable[i].VendorGuid)) {
+      acpi_table = system_table->ConfigurationTable[i].VendorTable;
+      break;
+    }
+  }
+
   typedef void EntryPointType(const struct FrameBufferConfig *,
-                              const struct MemoryMap *);
+                              const struct MemoryMap *, const VOID *);
 
   UINT64 entry_addr = *(UINT64 *)(kernel_first_addr + 24);
   EntryPointType *entry_point = (EntryPointType *)entry_addr;
-  entry_point(&config, &memmap);
+  entry_point(&config, &memmap, acpi_table);
 
   Print(L"All done\n");
 
