@@ -86,15 +86,40 @@ unsigned int mouse_layer_id;
 Vector2D<int> screen_size;
 Vector2D<int> mouse_position;
 
-void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
+void MouseObserver(uint8_t buttons, int8_t displacement_x,
+                   int8_t displacement_y) {
+  static unsigned int drag_layer_id = 0;
+  static uint8_t previous_buttons = 0;
+
+  const auto old_pos = mouse_position;
   auto new_pos = mouse_position + Vector2D<int>{displacement_x, displacement_y};
   new_pos = ElementMin(new_pos, screen_size + Vector2D<int>{-1, -1});
   mouse_position = ElementMax(new_pos, {0, 0});
 
+  const auto pos_diff = mouse_position - old_pos;
+
   layer_manager->Move(mouse_layer_id, mouse_position);
-  layer_manager->Draw(
-      {mouse_position, {kMouseCursorWidth, kMouseCursorHeight}});
+
   Log(kDebug, "MouseObserver: (%d,%d)\n", displacement_x, displacement_y);
+
+  const bool previous_left_pressed = previous_buttons & 0x01;
+  const bool left_pressed = buttons & 0x01;
+
+  if (!previous_left_pressed && left_pressed) {
+    auto layer =
+        layer_manager->FindLayerByPosition(mouse_position, mouse_layer_id);
+    if (layer && layer->IsDraggable()) {
+      drag_layer_id = layer->ID();
+    }
+  } else if (previous_left_pressed && left_pressed) {
+    if (drag_layer_id > 0) {
+      layer_manager->MoveRelative(drag_layer_id, pos_diff);
+    }
+  } else if (previous_left_pressed && !left_pressed) {
+    drag_layer_id = 0;
+  }
+
+  previous_buttons = buttons;
 }
 
 void SwitchEhci2Xhci(const pci::Device &xhcDev) {
@@ -336,8 +361,11 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
                        .SetWindow(mouse_window)
                        .Move(mouse_position)
                        .ID();
-  auto main_window_layer_id =
-      layer_manager->NewLayer().SetWindow(main_window).Move({300, 300}).ID();
+  auto main_window_layer_id = layer_manager->NewLayer()
+                                  .SetWindow(main_window)
+                                  .SetDraggable(true)
+                                  .Move({300, 300})
+                                  .ID();
   auto console_layer_id =
       layer_manager->NewLayer().SetWindow(console_window).Move({0, 0}).ID();
 
