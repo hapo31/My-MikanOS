@@ -83,7 +83,7 @@ char console_buf[sizeof(Console)];
 }  // namespace
 
 void InitializeConsole() {
-  console = new (console_buf) Console({200, 200, 200}, kDesktopBGColor);
+  console = new (console_buf) Console(kConsoleCharColor, kDesktopBGColor);
   console->SetWriter(::screen_writer);
 }
 

@@ -18,6 +18,7 @@
 #include "logger.hpp"
 #include "memory_manager.hpp"
 #include "memory_map.hpp"
+#include "message.hpp"
 #include "mouse.hpp"
 #include "paging.hpp"
 #include "pci.hpp"
@@ -68,7 +69,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     kDebug: 全部
     kError: エラー
   */
-  SetLogLevel(kDebug);
+  SetLogLevel(kInfo);
 
   printk("Welcome to fuckOS!\n");
   printk("Display info: %dx%d\n", config.horizontal_resolution,
@@ -89,14 +90,17 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   layer_manager->Draw({{0, 0}, screen_size});
 
+  InitializeLAPICTimer(*main_queue);
+  timer_manager->AddTimer(Timer{200, 2});
+  timer_manager->AddTimer(Timer(600, -1));
+
   char str[128];
-  unsigned int count = 0;
 
 #pragma region メッセージループ
 
   for (;;) {
-    ++count;
-    sprintf(str, "%010u", count);
+    auto count = timer_manager->CurrentTick();
+    sprintf(str, "%010lu", count);
     FillRect(*main_window, {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
     WriteString(*main_window, 24, 28, {0, 0, 0}, str);
     layer_manager->Draw(1);
@@ -114,6 +118,17 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     switch (msg.type) {
       case Message::kInterruptXHCI:
         usb::xhci::ProcessEvents();
+        break;
+      case Message::kInterruptTimer:
+        break;
+
+      case Message::kTimerTimeout:
+        printk("Timer timeout = %lu, value = %d\n", msg.arg.timer.timeout,
+               msg.arg.timer.value);
+        if (msg.arg.timer.value > 0) {
+          timer_manager->AddTimer(
+              Timer(msg.arg.timer.timeout + 100, msg.arg.timer.value + 1));
+        }
         break;
       default:
         Log(kError, "Unknown message type: %d\n", msg.type);

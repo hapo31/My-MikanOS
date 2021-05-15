@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <deque>
 
+#include "message.hpp"
+
 enum class InterruptDescriptorType {
   kUpper8Bytes = 0,
   kLDT = 2,
@@ -12,12 +14,6 @@ enum class InterruptDescriptorType {
   kCallGate = 12,
   kInterruptGate = 14,
   kTrapGate = 15,
-};
-
-struct Message {
-  enum Type {
-    kInterruptXHCI,
-  } type;
 };
 
 union InterruptDesriptorAttribute {
@@ -62,6 +58,7 @@ class InterruptVector {
  public:
   enum Number {
     kXHCI = 0x40,
+    kLAPICTimer = 0x41,
   };
 };
 

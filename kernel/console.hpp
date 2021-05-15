@@ -27,6 +27,8 @@ class Console {
   std::shared_ptr<Window> window;
 };
 
+const PixelColor kConsoleCharColor{200, 200, 200};
+
 extern Console *console;
 
 void InitializeConsole();
