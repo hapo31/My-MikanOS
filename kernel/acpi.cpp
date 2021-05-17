@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "asmfunc.h"
 #include "logger.hpp"
 
 namespace {
@@ -48,7 +49,7 @@ bool RSDP::IsValid() const {
 
 bool DescriptionHeader::IsValid(const char* expected_signature) const {
   if (strncmp(this->signature, expected_signature, 4) != 0) {
-    Log(kDebug, "invalid signature: %.4\n", this->signature);
+    Log(kDebug, "invalid signature: %.4s\n", this->signature);
     return false;
   }
   if (auto sum = SumBytes(this, this->length); sum != 0) {
@@ -76,7 +77,7 @@ void Initialize(const RSDP& rsdp) {
   }
 
   const XSDT& xsdt = *rsdp.GetXSDTAddr();
-  if (xsdt.header.IsValid("XSDT")) {
+  if (!xsdt.header.IsValid("XSDT")) {
     Log(kError, "RSDP is not valid(expect: %s, actual: %s)\n", "XSDT",
         xsdt.header.signature);
     exit(1);
@@ -94,6 +95,23 @@ void Initialize(const RSDP& rsdp) {
     Log(kError, "FADT is not found\n");
     exit(1);
   }
+}
+
+void WaitMilliseconds(unsigned long msec) {
+  const bool pm_timer_32 = ((fadt->flags >> 8) & 1);
+  const uint32_t start = IoIn32(fadt->pm_tmr_blk);
+  uint32_t end = start + kPMTImerFreq * msec / 1000;
+  if (!pm_timer_32) {
+    end &= 0x00ffffffu;
+  }
+
+  if (end < start) {
+    while (IoIn32(fadt->pm_tmr_blk) >= start)
+      ;
+  }
+
+  while (IoIn32(fadt->pm_tmr_blk) < end)
+    ;
 }
 
 }  // namespace acpi

@@ -28,8 +28,8 @@ __attribute__((interrupt)) void IntHandlerXHCI(InterruptFrame* frame) {
 }
 
 __attribute__((interrupt)) void IntHandlerTimer(InterruptFrame* frame) {
-  msg_queue->emplace_back(Message{Message::kInterruptTimer});
-  LAPICTimerOnIterrupt();
+  msg_queue->emplace_back(Message{Message::kTimerTimeout});
+  LAPICTimerOnInterrupt();
   NotifyEndOfInterrupt();
 }
 
