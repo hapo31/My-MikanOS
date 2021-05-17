@@ -18,10 +18,13 @@ void Console::PutString(const char *str) {
   while (*str) {
     if (*str == '\n') {
       NewLine();
-    } else if (cursorColumns < kColumns - 1) {
+    } else if (cursorColumns < kColumns) {
       WriteAscii(*writer, 8 * cursorColumns, 16 * cursorRow, fgColor, *str);
       buffer[cursorRow][cursorColumns] = *str;
       ++cursorColumns;
+      if (cursorColumns >= kColumns) {
+        NewLine();
+      }
     }
     ++str;
   }
