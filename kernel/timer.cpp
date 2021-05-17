@@ -50,7 +50,7 @@ void InitializeLAPICTimer(std::deque<Message>& msg_queue) {
 
   StartLAPICTimer();
   acpi::WaitMilliseconds(100);
-  const auto elapsed = LAPICTimerElapased();
+  const auto elapsed = LAPICTimerElapsed();
   StopLAPICTimer();
 
   lapic_timer_freq = static_cast<unsigned long>(elapsed) * 10;
@@ -64,6 +64,6 @@ void LAPICTimerOnInterrupt() { timer_manager->Tick(); }
 
 void StartLAPICTimer() { initial_count = kCountMax; }
 
-uint32_t LAPICTimerElapased() { return kCountMax - current_count; }
+uint32_t LAPICTimerElapsed() { return kCountMax - current_count; }
 
 void StopLAPICTimer() { initial_count = 0; }

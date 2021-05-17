@@ -41,5 +41,5 @@ const int kTimerFreq = 100;
 void InitializeLAPICTimer(std::deque<Message>& msg_queue);
 void LAPICTimerOnInterrupt();
 void StartLAPICTimer();
-uint32_t LAPICTimerElapased();
+uint32_t LAPICTimerElapsed();
 void StopLAPICTimer();

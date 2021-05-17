@@ -1,10 +1,11 @@
 #pragma once
+#include <deque>
 
 struct Message {
   enum Type {
     kInterruptXHCI,
-    kInterruptTimer,
     kTimerTimeout,
+    kKeyPush,
   } type;
 
   union {
@@ -12,5 +13,13 @@ struct Message {
       unsigned long timeout;
       int value;
     } timer;
+
+    struct {
+      uint8_t modifier;
+      uint8_t keycode;
+      char ascii;
+    } keyboard;
   } arg;
 };
+
+using MessageQueueType = std::deque<Message>;

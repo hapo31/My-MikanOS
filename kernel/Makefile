@@ -1,7 +1,7 @@
 TARGET = kernel.elf
 OBJS = main.o font.o graphics.o hankaku.o console.o asmfunc.o pci.o logger.o mouse_.o \
 			interrupt.o memory_manager.o paging.o segment.o window.o layer.o timer.o frame_buffer.o \
-			acpi.o error.o \
+			keyboard_.o acpi.o error.o \
 			libcxx_support.o newlib_support.o \
 			usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
 			usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
@@ -43,6 +43,9 @@ kernel.elf: $(OBJS) mouse.o Makefile
 
 mouse_.o: mouse.cpp Makefile
 				clang++ $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c mouse.cpp -o mouse_.o
+
+keyboard_.o: keyboard.cpp Makefile
+				clang++ $(INCLUDES) $(CPPFLAGS) $(CXXFLAGS) -c keyboard.cpp -o keyboard_.o
 
 .%.d: %.cpp
 				clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
