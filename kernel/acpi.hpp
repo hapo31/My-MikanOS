@@ -53,7 +53,7 @@ struct FADT {
 } __attribute__((packed));
 
 extern const FADT* fadt;
-const int kPMTImerFreq = 357945;
+const int kPMTimerFreq = 357945;
 
 void WaitMilliseconds(unsigned long msec);
 
