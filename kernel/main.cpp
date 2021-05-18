@@ -36,7 +36,8 @@
 
 void operator delete(void *obj) noexcept {}
 
-std::deque<Message> *main_queue;
+void DrawTextCursor(bool visible);
+
 std::shared_ptr<Window> main_window;
 unsigned int main_window_layer_id;
 
@@ -52,6 +53,60 @@ void InitializeMainWindow() {
 
   layer_manager->UpDown(main_window_layer_id, std::numeric_limits<int>::max());
 }
+
+std::shared_ptr<Window> text_window;
+unsigned int text_window_layer_id;
+
+void InitializeTextWindow() {
+  const int win_w = 250;
+  const int win_h = 52;
+
+  text_window =
+      std::make_shared<Window>(win_w, win_h, screen_config.pixel_format);
+  DrawWindow(*text_window, "Text Box Test(Text dakeni)");
+  DrawTextBox(*text_window, {4, 24}, {win_w - 8, win_h - 24 - 4});
+  DrawTextCursor(true);
+  text_window_layer_id = layer_manager->NewLayer()
+                             .SetWindow(text_window)
+                             .SetDraggable(true)
+                             .Move({250, 200})
+                             .ID();
+
+  layer_manager->UpDown(text_window_layer_id, std::numeric_limits<int>::max());
+}
+
+int text_window_index;
+
+void DrawTextCursor(bool visible) {
+  const auto color = visible ? ToColor(0) : ToColor(0xffffff);
+  const auto pos = Vector2D<int>{8 + 8 * text_window_index, 24 + 5};
+  FillRect(*text_window, pos, {7, 15}, color);
+}
+
+void InputTextWindow(char c) {
+  if (c == 0) {
+    return;
+  }
+
+  auto pos = []() { return Vector2D<int>{8 + 8 * text_window_index, 24 + 6}; };
+  const int max_chars = (text_window->Width() - 16) / 8;
+  if (c == '\b' && text_window_index > 0) {
+    DrawTextCursor(false);
+    --text_window_index;
+    FillRect(*text_window, pos(), {8, 16}, ToColor(0xffffff));
+    DrawTextCursor(true);
+  } else if (c >= ' ' && text_window_index < max_chars) {
+    DrawTextCursor(false);
+    const auto p = pos();
+    WriteAscii(*text_window, p.x, p.y, ToColor(0), c);
+    ++text_window_index;
+    DrawTextCursor(true);
+  }
+
+  layer_manager->Draw(text_window_layer_id);
+}
+
+std::deque<Message> *main_queue;
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
@@ -89,6 +144,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   InitializeLayer();
   InitializeMainWindow();
+  InitializeTextWindow();
   InitializeMouse();
 
   layer_manager->Draw({{0, 0}, screen_size});
@@ -96,6 +152,13 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   acpi::Initialize(acpi_table);
   InitializeLAPICTimer(*main_queue);
   InitializeKeyboard(*main_queue);
+
+  const int kTextBoxCursorTimer = 1;
+  const int kTimer1Sec = static_cast<int>(kTimerFreq * 1);
+  __asm__("cli");
+  timer_manager->AddTimer(Timer{kTimer1Sec, kTextBoxCursorTimer});
+  __asm__("sti");
+  bool textbox_cursor_visible = false;
 
   char str[128];
 
@@ -123,17 +186,19 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
         usb::xhci::ProcessEvents();
         break;
       case Message::kTimerTimeout:
-        // printk("Timer timeout = %lu, value = %d\n", msg.arg.timer.timeout,
-        //        msg.arg.timer.value);
-        // if (msg.arg.timer.value > 0) {
-        //   timer_manager->AddTimer(
-        //       Timer(msg.arg.timer.timeout + 100, msg.arg.timer.value + 1));
-        // }
+        if (msg.arg.timer.value == kTextBoxCursorTimer) {
+          __asm__("cli");
+          timer_manager->AddTimer(
+              Timer{msg.arg.timer.timeout + kTimer1Sec, kTextBoxCursorTimer});
+          __asm__("sti");
+          textbox_cursor_visible = !textbox_cursor_visible;
+          DrawTextCursor(textbox_cursor_visible);
+          layer_manager->Draw(text_window_layer_id);
+        }
         break;
-
       case Message::kKeyPush:
         if (msg.arg.keyboard.ascii != 0) {
-          printk("%c", msg.arg.keyboard.ascii);
+          InputTextWindow(msg.arg.keyboard.ascii);
         }
         break;
       default:
