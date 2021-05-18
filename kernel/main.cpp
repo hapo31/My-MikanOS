@@ -106,6 +106,109 @@ void InputTextWindow(char c) {
   layer_manager->Draw(text_window_layer_id);
 }
 
+const int kCellSize = 5;
+const auto kCellColor = ToColor(0xe4007f);
+const auto kFieldColor = ToColor(0x0000ff);
+const int height = 50;
+const int width = 75;
+
+std::shared_ptr<Window> lifegame_window;
+unsigned int lifegame_window_layer_id;
+
+std::vector<int> field;
+
+uint32_t getRand(void) {
+  static uint32_t y = 2493532242;
+  y = y ^ (y << 13);
+  y = y ^ (y >> 17);
+  return y = y ^ (y << 5);
+}
+
+void InitializeLifeGame() {
+  const int win_h = kCellSize * height;
+  const int win_w = kCellSize * width;
+
+  field.resize((height + 2) * (width + 2));
+  for (int y = 1; y < height - 1; ++y) {
+    for (int x = 1; x < width - 1; ++x) {
+      field[y * width + x] = getRand() % 3;
+    }
+  }
+
+  lifegame_window =
+      std::make_shared<Window>(win_w, win_h, screen_config.pixel_format);
+
+  FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, kFieldColor);
+
+  lifegame_window_layer_id = layer_manager->NewLayer()
+                                 .SetWindow(lifegame_window)
+                                 .SetDraggable(true)
+                                 .ID();
+
+  layer_manager->UpDown(lifegame_window_layer_id,
+                        std::numeric_limits<int>::max());
+}
+
+void UpdateLifeGame() {
+  {
+    std::vector<int> nextField(field.size());
+    for (int y = 1; y < height - 1; ++y) {
+      for (int x = 1; x < width - 1; ++x) {
+        int live = 0;
+        // 左上
+        if (field[(y - 1) * width + x - 1]) {
+          live++;
+        }
+        // 上
+        if (field[(y - 1) * width + x]) {
+          live++;
+        }
+        // 右上
+        if (field[(y - 1) * width + x + 1]) {
+          live++;
+        }
+        // 右
+        if (field[y * width + x + 1]) {
+          live++;
+        }
+        // 右下
+        if (field[(y + 1) * width + x + 1]) {
+          live++;
+        }
+        // 下
+        if (field[(y + 1) * width + x]) {
+          live++;
+        }
+        // 左下
+        if (field[(y + 1) * width + x - 1]) {
+          live++;
+        }
+        // 左
+        if (field[y * width + x - 1]) {
+          live++;
+        }
+        if (live == 2 && field[y * width + x] || live == 3) {
+          nextField[y * width + x] = 1;
+        } else {
+          nextField[y * width + x] = 0;
+        }
+      }
+      field = nextField;
+    }
+  }
+  const int win_h = kCellSize * height;
+  const int win_w = kCellSize * width;
+  FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, kFieldColor);
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      if (field[y * width + x]) {
+        FillRect(*lifegame_window, {x * kCellSize, y * kCellSize},
+                 {kCellSize, kCellSize}, kCellColor);
+      }
+    }
+  }
+}
+
 std::deque<Message> *main_queue;
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
@@ -145,6 +248,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeLayer();
   InitializeMainWindow();
   InitializeTextWindow();
+  InitializeLifeGame();
   InitializeMouse();
 
   layer_manager->Draw({{0, 0}, screen_size});
@@ -193,8 +297,10 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           __asm__("sti");
           textbox_cursor_visible = !textbox_cursor_visible;
           DrawTextCursor(textbox_cursor_visible);
+          UpdateLifeGame();
           layer_manager->Draw(text_window_layer_id);
         }
+
         break;
       case Message::kKeyPush:
         if (msg.arg.keyboard.ascii != 0) {
