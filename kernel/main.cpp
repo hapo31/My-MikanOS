@@ -27,11 +27,8 @@
 #include "pci.hpp"
 #include "queue.hpp"
 #include "segment.hpp"
+#include "task.hpp"
 #include "timer.hpp"
-#include "usb/classdriver/mouse.hpp"
-#include "usb/device.hpp"
-#include "usb/memory.hpp"
-#include "usb/xhci/trb.hpp"
 #include "usb/xhci/xhci.hpp"
 #include "window.hpp"
 
@@ -107,21 +104,11 @@ void InputTextWindow(char c) {
   layer_manager->Draw(text_window_layer_id);
 }
 
-struct TaskContext {
-  uint64_t cr3, rip, rflags, reserved1;
-  uint64_t cs, ss, fs, gs;
-  uint64_t rax, rbx, rcx, rdx, rdi, rsi, rsp, rpb;
-  uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
-  std::array<uint8_t, 512> fxsave_area;
-} __attribute__((packed));
-
-alignas(16) TaskContext lifegame_context, main_context;
-
 const int kCellSize = 5;
 const auto kCellColor = ToColor(0xe4007f);
 const auto kFieldColor = ToColor(0x0000ff);
-const int height = 50;
-const int width = 75;
+int field_width;
+int field_height;
 
 std::shared_ptr<Window> lifegame_window;
 unsigned int lifegame_window_layer_id;
@@ -129,20 +116,23 @@ unsigned int lifegame_window_layer_id;
 std::vector<int> field;
 
 uint32_t getRand(void) {
-  static uint32_t y = 2493534442;
+  static uint32_t y = 1283999442;
   y = y ^ (y << 13);
   y = y ^ (y >> 17);
   return y = y ^ (y << 5);
 }
 
-void InitializeLifeGame() {
+void InitializeLifeGame(int width, int height) {
   const int win_h = kCellSize * height;
   const int win_w = kCellSize * width;
+
+  field_width = width;
+  field_height = height;
 
   field.resize((height + 2) * (width + 2));
   for (int y = 1; y < height - 1; ++y) {
     for (int x = 1; x < width - 1; ++x) {
-      field[y * width + x] = getRand() % 3;
+      field[y * width + x] = (getRand() % 3) >= 1;
     }
   }
 
@@ -154,76 +144,75 @@ void InitializeLifeGame() {
   lifegame_window_layer_id = layer_manager->NewLayer()
                                  .SetWindow(lifegame_window)
                                  .SetDraggable(true)
-                                 .Move({100, 200})
+                                 .Move({150, 200})
                                  .ID();
 
   layer_manager->UpDown(lifegame_window_layer_id,
                         std::numeric_limits<int>::max());
 }
 
-void UpdateLifeGame() {
+void UpdateLifeGame(uint32_t cell_color, uint32_t field_color) {
   while (true) {
     {
-      std::vector<int> nextField(field.size());
-      for (int y = 1; y < height - 1; ++y) {
-        for (int x = 1; x < width - 1; ++x) {
+      std::vector<int> nextField(field);
+      for (int y = 1; y < field_height - 1; ++y) {
+        for (int x = 1; x < field_width - 1; ++x) {
           int live = 0;
           // 左上
-          if (field[(y - 1) * width + x - 1]) {
+          if (field[(y - 1) * field_width + x - 1]) {
             live++;
           }
           // 上
-          if (field[(y - 1) * width + x]) {
+          if (field[(y - 1) * field_width + x]) {
             live++;
           }
           // 右上
-          if (field[(y - 1) * width + x + 1]) {
+          if (field[(y - 1) * field_width + x + 1]) {
             live++;
           }
           // 右
-          if (field[y * width + x + 1]) {
+          if (field[y * field_width + x + 1]) {
             live++;
           }
           // 右下
-          if (field[(y + 1) * width + x + 1]) {
+          if (field[(y + 1) * field_width + x + 1]) {
             live++;
           }
           // 下
-          if (field[(y + 1) * width + x]) {
+          if (field[(y + 1) * field_width + x]) {
             live++;
           }
           // 左下
-          if (field[(y + 1) * width + x - 1]) {
+          if (field[(y + 1) * field_width + x - 1]) {
             live++;
           }
           // 左
-          if (field[y * width + x - 1]) {
+          if (field[y * field_width + x - 1]) {
             live++;
           }
-          if (live == 2 && field[y * width + x] || live == 3) {
-            nextField[y * width + x] = 1;
+          if (live == 2 && field[y * field_width + x] || live == 3) {
+            nextField[y * field_width + x] = 1;
           } else {
-            nextField[y * width + x] = 0;
+            nextField[y * field_width + x] = 0;
           }
         }
-        field = std::move(nextField);
+        field = nextField;
       }
     }
-    const int win_h = kCellSize * height;
-    const int win_w = kCellSize * width;
-    FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, kFieldColor);
-    for (int y = 0; y < height; ++y) {
-      for (int x = 0; x < width; ++x) {
-        if (field[y * width + x]) {
+    const int win_h = kCellSize * field_height;
+    const int win_w = kCellSize * field_width;
+    FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2},
+             ToColor(field_color));
+    for (int y = 0; y < field_height; ++y) {
+      for (int x = 0; x < field_width; ++x) {
+        if (field[y * field_width + x]) {
           FillRect(*lifegame_window, {x * kCellSize, y * kCellSize},
-                   {kCellSize, kCellSize}, kCellColor);
+                   {kCellSize, kCellSize}, ToColor(cell_color));
         }
       }
     }
 
     layer_manager->Draw(lifegame_window_layer_id);
-
-    SwitchContext(&main_context, &lifegame_context);
   }
 }
 
@@ -248,7 +237,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     kDebug: 全部
     kError: エラー
   */
-  SetLogLevel(kInfo);
+  SetLogLevel(kDebug);
 
   printk("Welcome to fuckOS!\n");
   printk("Display info: %dx%d\n", config.horizontal_resolution,
@@ -266,7 +255,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeLayer();
   InitializeMainWindow();
   InitializeTextWindow();
-  InitializeLifeGame();
+  InitializeLifeGame(65, 40);
   InitializeMouse();
 
   layer_manager->Draw({{0, 0}, screen_size});
@@ -286,10 +275,10 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   uint64_t lifegame_stack_end =
       reinterpret_cast<uint64_t>(&lifegame_task_stack[1024]);
 
-  memset(&lifegame_task_stack, 0, sizeof(lifegame_context));
+  memset(&lifegame_context, 0, sizeof(lifegame_context) - sizeof(const char *));
   lifegame_context.rip = reinterpret_cast<uint64_t>(UpdateLifeGame);
-  lifegame_context.rdi = 1;
-  lifegame_context.rsi = 42;
+  lifegame_context.rdi = 0xff0000;
+  lifegame_context.rsi = 0x00ff00;
 
   lifegame_context.cr3 = GetCR3();
   lifegame_context.rflags = 0x202;
@@ -299,21 +288,26 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   *reinterpret_cast<uint32_t *>(&lifegame_context.fxsave_area[24]) = 0x1f80;
 
+  InitializeTask();
+
   char str[128];
 
 #pragma region メッセージループ
 
   for (;;) {
-    auto count = timer_manager->CurrentTick();
+    __asm__("cli");
+    const auto count = timer_manager->CurrentTick();
+    __asm__("sti");
+
     sprintf(str, "%010lu", count);
     FillRect(*main_window, {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
     WriteString(*main_window, 24, 28, {0, 0, 0}, str);
     layer_manager->Draw(1);
     layer_manager->Draw(main_window_layer_id);
+
     __asm__("cli");
     if (main_queue->size() == 0) {
-      __asm__("sti");
-      SwitchContext(&lifegame_context, &main_context);
+      __asm__("sti\nhlt\n");
       continue;
     }
 
