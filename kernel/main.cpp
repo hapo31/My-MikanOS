@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <deque>
 #include <limits>
 #include <numeric>
@@ -106,6 +107,16 @@ void InputTextWindow(char c) {
   layer_manager->Draw(text_window_layer_id);
 }
 
+struct TaskContext {
+  uint64_t cr3, rip, rflags, reserved1;
+  uint64_t cs, ss, fs, gs;
+  uint64_t rax, rbx, rcx, rdx, rdi, rsi, rsp, rpb;
+  uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
+  std::array<uint8_t, 512> fxsave_area;
+} __attribute__((packed));
+
+alignas(16) TaskContext lifegame_context, main_context;
+
 const int kCellSize = 5;
 const auto kCellColor = ToColor(0xe4007f);
 const auto kFieldColor = ToColor(0x0000ff);
@@ -118,7 +129,7 @@ unsigned int lifegame_window_layer_id;
 std::vector<int> field;
 
 uint32_t getRand(void) {
-  static uint32_t y = 2493532242;
+  static uint32_t y = 2493534442;
   y = y ^ (y << 13);
   y = y ^ (y >> 17);
   return y = y ^ (y << 5);
@@ -143,6 +154,7 @@ void InitializeLifeGame() {
   lifegame_window_layer_id = layer_manager->NewLayer()
                                  .SetWindow(lifegame_window)
                                  .SetDraggable(true)
+                                 .Move({100, 200})
                                  .ID();
 
   layer_manager->UpDown(lifegame_window_layer_id,
@@ -150,62 +162,68 @@ void InitializeLifeGame() {
 }
 
 void UpdateLifeGame() {
-  {
-    std::vector<int> nextField(field.size());
-    for (int y = 1; y < height - 1; ++y) {
-      for (int x = 1; x < width - 1; ++x) {
-        int live = 0;
-        // 左上
-        if (field[(y - 1) * width + x - 1]) {
-          live++;
+  while (true) {
+    {
+      std::vector<int> nextField(field.size());
+      for (int y = 1; y < height - 1; ++y) {
+        for (int x = 1; x < width - 1; ++x) {
+          int live = 0;
+          // 左上
+          if (field[(y - 1) * width + x - 1]) {
+            live++;
+          }
+          // 上
+          if (field[(y - 1) * width + x]) {
+            live++;
+          }
+          // 右上
+          if (field[(y - 1) * width + x + 1]) {
+            live++;
+          }
+          // 右
+          if (field[y * width + x + 1]) {
+            live++;
+          }
+          // 右下
+          if (field[(y + 1) * width + x + 1]) {
+            live++;
+          }
+          // 下
+          if (field[(y + 1) * width + x]) {
+            live++;
+          }
+          // 左下
+          if (field[(y + 1) * width + x - 1]) {
+            live++;
+          }
+          // 左
+          if (field[y * width + x - 1]) {
+            live++;
+          }
+          if (live == 2 && field[y * width + x] || live == 3) {
+            nextField[y * width + x] = 1;
+          } else {
+            nextField[y * width + x] = 0;
+          }
         }
-        // 上
-        if (field[(y - 1) * width + x]) {
-          live++;
-        }
-        // 右上
-        if (field[(y - 1) * width + x + 1]) {
-          live++;
-        }
-        // 右
-        if (field[y * width + x + 1]) {
-          live++;
-        }
-        // 右下
-        if (field[(y + 1) * width + x + 1]) {
-          live++;
-        }
-        // 下
-        if (field[(y + 1) * width + x]) {
-          live++;
-        }
-        // 左下
-        if (field[(y + 1) * width + x - 1]) {
-          live++;
-        }
-        // 左
-        if (field[y * width + x - 1]) {
-          live++;
-        }
-        if (live == 2 && field[y * width + x] || live == 3) {
-          nextField[y * width + x] = 1;
-        } else {
-          nextField[y * width + x] = 0;
-        }
-      }
-      field = nextField;
-    }
-  }
-  const int win_h = kCellSize * height;
-  const int win_w = kCellSize * width;
-  FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, kFieldColor);
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      if (field[y * width + x]) {
-        FillRect(*lifegame_window, {x * kCellSize, y * kCellSize},
-                 {kCellSize, kCellSize}, kCellColor);
+        field = std::move(nextField);
       }
     }
+    const int win_h = kCellSize * height;
+    const int win_w = kCellSize * width;
+    FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, kFieldColor);
+    for (int y = 0; y < height; ++y) {
+      for (int x = 0; x < width; ++x) {
+        if (field[y * width + x]) {
+          FillRect(*lifegame_window, {x * kCellSize, y * kCellSize},
+                   {kCellSize, kCellSize}, kCellColor);
+        }
+      }
+    }
+
+    layer_manager->Draw(lifegame_window_layer_id);
+
+    SwitchContext(&main_context, &lifegame_context);
   }
 }
 
@@ -264,6 +282,23 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   __asm__("sti");
   bool textbox_cursor_visible = false;
 
+  std::vector<uint64_t> lifegame_task_stack(1024);
+  uint64_t lifegame_stack_end =
+      reinterpret_cast<uint64_t>(&lifegame_task_stack[1024]);
+
+  memset(&lifegame_task_stack, 0, sizeof(lifegame_context));
+  lifegame_context.rip = reinterpret_cast<uint64_t>(UpdateLifeGame);
+  lifegame_context.rdi = 1;
+  lifegame_context.rsi = 42;
+
+  lifegame_context.cr3 = GetCR3();
+  lifegame_context.rflags = 0x202;
+  lifegame_context.cs = kKernelCS;
+  lifegame_context.ss = kKernelSS;
+  lifegame_context.rsp = (lifegame_stack_end & ~0xflu) - 8;
+
+  *reinterpret_cast<uint32_t *>(&lifegame_context.fxsave_area[24]) = 0x1f80;
+
   char str[128];
 
 #pragma region メッセージループ
@@ -277,7 +312,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     layer_manager->Draw(main_window_layer_id);
     __asm__("cli");
     if (main_queue->size() == 0) {
-      __asm__("sti\n\thlt");
+      __asm__("sti");
+      SwitchContext(&lifegame_context, &main_context);
       continue;
     }
 
@@ -297,7 +333,6 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           __asm__("sti");
           textbox_cursor_visible = !textbox_cursor_visible;
           DrawTextCursor(textbox_cursor_visible);
-          UpdateLifeGame();
           layer_manager->Draw(text_window_layer_id);
         }
 
