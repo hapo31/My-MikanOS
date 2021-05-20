@@ -19,7 +19,7 @@ class Timer {
 
 class TimerManager {
  public:
-  TimerManager(std::deque<Message>& msg_queue);
+  TimerManager();
   void AddTimer(const Timer& timer);
   bool Tick();
   unsigned long CurrentTick() const { return tick; }
@@ -27,7 +27,6 @@ class TimerManager {
  private:
   volatile unsigned long tick{0};
   std::priority_queue<Timer> timers{};
-  std::deque<Message>& msg_queue;
 };
 
 inline bool operator<(const Timer& lhs, const Timer& rhs) {
@@ -41,7 +40,7 @@ const int kTimerFreq = 100;
 const int kTaskTimerPeriod = static_cast<int>(kTimerFreq * 0.02);
 const int kTaskTimerValue = std::numeric_limits<int>::min();
 
-void InitializeLAPICTimer(std::deque<Message>& msg_queue);
+void InitializeLAPICTimer();
 void LAPICTimerOnInterrupt();
 void StartLAPICTimer();
 uint32_t LAPICTimerElapsed();

@@ -52,7 +52,13 @@
     "typeinfo": "cpp",
     "bit": "cpp",
     "__split_buffer": "cpp",
-    "future": "cpp"
+    "future": "cpp",
+    "__locale": "cpp",
+    "locale": "cpp",
+    "thread": "cpp",
+    "filesystem": "cpp",
+    "queue": "cpp",
+    "stack": "cpp"
   },
   "editor.defaultFormatter": "ms-vscode.cpptools",
   "editor.formatOnSave": true,

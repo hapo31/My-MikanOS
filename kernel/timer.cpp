@@ -16,8 +16,7 @@ volatile uint32_t& divide_config = *reinterpret_cast<uint32_t*>(0xfee003e0);
 
 }  // namespace
 
-TimerManager::TimerManager(std::deque<Message>& msg_queue_)
-    : msg_queue{msg_queue_} {
+TimerManager::TimerManager() {
   timers.emplace(Timer{std::numeric_limits<unsigned long>::max(), -1});
 }
 
@@ -42,8 +41,7 @@ bool TimerManager::Tick() {
     m.arg.timer.timeout = t.Timeout();
     m.arg.timer.value = t.Value();
 
-    msg_queue.emplace_back(m);
-
+    task_manager->SendMessage(1, m);
     timers.pop();
   }
 
@@ -55,8 +53,8 @@ void TimerManager::AddTimer(const Timer& timer) { timers.emplace(timer); }
 unsigned long lapic_timer_freq;
 TimerManager* timer_manager;
 
-void InitializeLAPICTimer(std::deque<Message>& msg_queue) {
-  timer_manager = new TimerManager(msg_queue);
+void InitializeLAPICTimer() {
+  timer_manager = new TimerManager();
   divide_config = 0b1011;
   lvt_timer = 0b001 << 16;
 

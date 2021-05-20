@@ -152,6 +152,8 @@ void InitializeLifeGame(int width, int height) {
 }
 
 void UpdateLifeGame(uint64_t task_id, uint64_t data) {
+  static uint gen = 0;
+
   auto field_color_bytes = (data >> 32) & 0xffff;
   auto cell_color_bytes = (data)&0xffff;
 
@@ -217,6 +219,12 @@ void UpdateLifeGame(uint64_t task_id, uint64_t data) {
       }
     }
 
+    char buf[32];
+    sprintf(buf, "%d", gen);
+    WriteString(*lifegame_window, 0, 0, ToColor(0xff0000), buf);
+
+    gen++;
+
     layer_manager->Draw(lifegame_window_layer_id);
   }
 }
@@ -225,8 +233,6 @@ void TaskIdle(uint64_t task_id, uint64_t data) {
   printk("TaskIdle: task_id=%lu, data=%lx\n", task_id, data);
   while (true) __asm__("hlt");
 }
-
-std::deque<Message> *main_queue;
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
@@ -256,23 +262,19 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeSegmentation();
   InitializePaging();
   InitializeMemoryManager(memmap);
-  ::main_queue = new std::deque<Message>(32);
-  InitializeInterrupt(main_queue);
+  InitializeInterrupt();
 
   InitializePCI();
-  usb::xhci::Initialize();
 
   InitializeLayer();
   InitializeMainWindow();
   InitializeTextWindow();
   InitializeLifeGame(65, 40);
-  InitializeMouse();
 
   layer_manager->Draw({{0, 0}, screen_size});
 
   acpi::Initialize(acpi_table);
-  InitializeLAPICTimer(*main_queue);
-  InitializeKeyboard(*main_queue);
+  InitializeLAPICTimer();
 
   const int kTextBoxCursorTimer = 1;
   const int kTimer1Sec = static_cast<int>(kTimerFreq * 1);
@@ -283,6 +285,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   InitializeTask();
 
+  auto &main_task = task_manager->CurrentTask();
+
   const auto lifegame_taskid =
       task_manager->NewTask()
           .InitContext(UpdateLifeGame, 0xdeadbeefc0ffee)
@@ -290,6 +294,10 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           .ID();
   task_manager->NewTask().InitContext(TaskIdle, 0xdeadbeef).Wakeup();
   task_manager->NewTask().InitContext(TaskIdle, 0xc0ffee).Wakeup();
+
+  usb::xhci::Initialize();
+  InitializeKeyboard();
+  InitializeMouse();
 
   char str[128];
 
@@ -307,24 +315,25 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     layer_manager->Draw(main_window_layer_id);
 
     __asm__("cli");
-    if (main_queue->size() == 0) {
-      __asm__("sti\nhlt\n");
+
+    auto msg = main_task.ReceivedMessage();
+    if (!msg) {
+      main_task.Sleep();
+      __asm__("sti");
       continue;
     }
 
-    Message msg = main_queue->front();
-    main_queue->pop_front();
     __asm__("sti");
 
-    switch (msg.type) {
+    switch (msg->type) {
       case Message::kInterruptXHCI:
         usb::xhci::ProcessEvents();
         break;
       case Message::kTimerTimeout:
-        if (msg.arg.timer.value == kTextBoxCursorTimer) {
+        if (msg->arg.timer.value == kTextBoxCursorTimer) {
           __asm__("cli");
           timer_manager->AddTimer(
-              Timer{msg.arg.timer.timeout + kTimer1Sec, kTextBoxCursorTimer});
+              Timer{msg->arg.timer.timeout + kTimer1Sec, kTextBoxCursorTimer});
           __asm__("sti");
           textbox_cursor_visible = !textbox_cursor_visible;
           DrawTextCursor(textbox_cursor_visible);
@@ -333,18 +342,18 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
         break;
       case Message::kKeyPush:
-        if (msg.arg.keyboard.ascii != 0) {
-          InputTextWindow(msg.arg.keyboard.ascii);
+        if (msg->arg.keyboard.ascii != 0) {
+          InputTextWindow(msg->arg.keyboard.ascii);
         }
 
-        if (msg.arg.keyboard.ascii == 's') {
+        if (msg->arg.keyboard.ascii == 's') {
           task_manager->Sleep(lifegame_taskid);
-        } else if (msg.arg.keyboard.ascii == 'w') {
+        } else if (msg->arg.keyboard.ascii == 'w') {
           task_manager->Wakeup(lifegame_taskid);
         }
         break;
       default:
-        Log(kError, "Unknown message type: %d\n", msg.type);
+        Log(kError, "Unknown message type: %d\n", msg->type);
     }
   }
 

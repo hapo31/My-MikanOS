@@ -3,4 +3,4 @@
 
 #include "message.hpp"
 
-void InitializeKeyboard(MessageQueueType& msg_queue);
+void InitializeKeyboard();

@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "logger.hpp"
+#include "task.hpp"
 #include "usb/classdriver/keyboard.hpp"
 
 const char keycode_map[256] = {
@@ -46,9 +47,9 @@ const int kRShiftBitMask = 0b00100000u;
 const int kRAltBitMask = 0b01000000u;
 const int kRGUIBitMask = 0b10000000u;
 
-void InitializeKeyboard(MessageQueueType& msg_queue) {
-  usb::HIDKeyboardDriver::default_observer = [&msg_queue](uint8_t modifier,
-                                                          uint8_t keycode) {
+void InitializeKeyboard() {
+  usb::HIDKeyboardDriver::default_observer = [](uint8_t modifier,
+                                                uint8_t keycode) {
     const bool shift = (modifier & (kLShiftBitMask | kRShiftBitMask)) != 0;
     char ascii = keycode_map[keycode];
 
@@ -60,6 +61,6 @@ void InitializeKeyboard(MessageQueueType& msg_queue) {
     msg.arg.keyboard.modifier = modifier;
     msg.arg.keyboard.keycode = keycode;
     msg.arg.keyboard.ascii = ascii;
-    msg_queue.emplace_back(msg);
+    task_manager->SendMessage(1, msg);
   };
 }
