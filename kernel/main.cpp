@@ -151,7 +151,13 @@ void InitializeLifeGame(int width, int height) {
                         std::numeric_limits<int>::max());
 }
 
-void UpdateLifeGame(uint32_t cell_color, uint32_t field_color) {
+void UpdateLifeGame(uint64_t task_id, uint64_t data) {
+  auto field_color_bytes = (data >> 32) & 0xffff;
+  auto cell_color_bytes = (data)&0xffff;
+
+  auto field_color = ToColor(field_color_bytes);
+  auto cell_color = ToColor(cell_color_bytes);
+
   while (true) {
     {
       std::vector<int> nextField(field);
@@ -201,19 +207,23 @@ void UpdateLifeGame(uint32_t cell_color, uint32_t field_color) {
     }
     const int win_h = kCellSize * field_height;
     const int win_w = kCellSize * field_width;
-    FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2},
-             ToColor(field_color));
+    FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, field_color);
     for (int y = 0; y < field_height; ++y) {
       for (int x = 0; x < field_width; ++x) {
         if (field[y * field_width + x]) {
           FillRect(*lifegame_window, {x * kCellSize, y * kCellSize},
-                   {kCellSize, kCellSize}, ToColor(cell_color));
+                   {kCellSize, kCellSize}, cell_color);
         }
       }
     }
 
     layer_manager->Draw(lifegame_window_layer_id);
   }
+}
+
+void TaskIdle(uint64_t task_id, uint64_t data) {
+  printk("TaskIdle: task_id=%lu, data=%lx\n", task_id, data);
+  while (true) __asm__("hlt");
 }
 
 std::deque<Message> *main_queue;
@@ -237,7 +247,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     kDebug: 全部
     kError: エラー
   */
-  SetLogLevel(kDebug);
+  SetLogLevel(kInfo);
 
   printk("Welcome to fuckOS!\n");
   printk("Display info: %dx%d\n", config.horizontal_resolution,
@@ -271,24 +281,11 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   __asm__("sti");
   bool textbox_cursor_visible = false;
 
-  std::vector<uint64_t> lifegame_task_stack(1024);
-  uint64_t lifegame_stack_end =
-      reinterpret_cast<uint64_t>(&lifegame_task_stack[1024]);
-
-  memset(&lifegame_context, 0, sizeof(lifegame_context) - sizeof(const char *));
-  lifegame_context.rip = reinterpret_cast<uint64_t>(UpdateLifeGame);
-  lifegame_context.rdi = 0xff0000;
-  lifegame_context.rsi = 0x00ff00;
-
-  lifegame_context.cr3 = GetCR3();
-  lifegame_context.rflags = 0x202;
-  lifegame_context.cs = kKernelCS;
-  lifegame_context.ss = kKernelSS;
-  lifegame_context.rsp = (lifegame_stack_end & ~0xflu) - 8;
-
-  *reinterpret_cast<uint32_t *>(&lifegame_context.fxsave_area[24]) = 0x1f80;
-
   InitializeTask();
+
+  task_manager->NewTask().InitContext(UpdateLifeGame, 0xdeadbeefc0ffee);
+  task_manager->NewTask().InitContext(TaskIdle, 0xdeadbeef);
+  task_manager->NewTask().InitContext(TaskIdle, 0xc0ffee);
 
   char str[128];
 

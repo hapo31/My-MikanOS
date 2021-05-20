@@ -78,7 +78,7 @@ void LAPICTimerOnInterrupt() {
   NotifyEndOfInterrupt();
 
   if (task_timer_timeout) {
-    SwitchTask();
+    task_manager->SwitchTask();
   }
 }
 
