@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include <algorithm>
+
 #include "asmfunc.h"
 #include "logger.hpp"
 #include "segment.hpp"
@@ -32,21 +34,82 @@ Task& Task::InitContext(TaskFunc* f, int64_t data) {
   return *this;
 }
 
-TaskManager::TaskManager() { NewTask(); }
+Task& Task::Sleep() {
+  task_manager->Sleep(id);
+  return *this;
+}
+Task& Task::Wakeup() {
+  task_manager->Wakeup(id);
+  return *this;
+}
+
+TaskManager::TaskManager() { running.emplace_back(&NewTask()); }
 
 Task& TaskManager::NewTask() {
   ++latest_id;
   return *tasks.emplace_back(new Task{latest_id});
 }
 
-void TaskManager::SwitchTask() {
-  size_t next_task_index = (current_task_index + 1) % tasks.size();
+void TaskManager::SwitchTask(bool current_sleep) {
+  auto current_task = running.front();
 
-  Task& current_task = *tasks[current_task_index];
-  Task& next_task = *tasks[next_task_index];
-  current_task_index = next_task_index;
+  running.pop_front();
+  if (!current_sleep) {
+    running.push_back(current_task);
+  }
 
-  SwitchContext(&next_task.Context(), &current_task.Context());
+  Task* next_task = running.front();
+
+  SwitchContext(&next_task->Context(), &current_task->Context());
+}
+
+void TaskManager::Sleep(Task* task) {
+  auto it = std::find(running.begin(), running.end(), task);
+  if (it == running.begin()) {
+    SwitchTask(true);
+    return;
+  }
+
+  if (it == running.end()) {
+    return;
+  }
+
+  running.erase(it);
+}
+
+Error TaskManager::Sleep(uint64_t task_id) {
+  auto it = std::find_if(
+      tasks.begin(), tasks.end(),
+      [task_id](const auto& task) { return task->ID() == task_id; });
+
+  if (it == tasks.end()) {
+    return MAKE_ERROR(Error::kNoSuchTask);
+  }
+
+  Sleep(it->get());
+
+  return MAKE_ERROR(Error::kSuccess);
+}
+
+void TaskManager::Wakeup(Task* task) {
+  auto it = std::find(running.begin(), running.end(), task);
+
+  if (it == running.end()) {
+    running.emplace_back(task);
+  }
+}
+
+Error TaskManager::Wakeup(uint64_t task_id) {
+  auto it = std::find_if(
+      tasks.begin(), tasks.end(),
+      [task_id](const auto& task) { return task->ID() == task_id; });
+
+  if (it == tasks.end()) {
+    return MAKE_ERROR(Error::kNoSuchTask);
+  }
+
+  Wakeup(it->get());
+  return MAKE_ERROR(Error::kSuccess);
 }
 
 TaskManager* task_manager;

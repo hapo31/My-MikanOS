@@ -2,8 +2,11 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <vector>
+
+#include "error.hpp"
 
 struct TaskContext {
   uint64_t cr3, rip, rflags, reserved1;
@@ -26,6 +29,11 @@ class Task {
   Task& InitContext(TaskFunc* f, int64_t data);
   TaskContext& Context() { return context; }
 
+  uint64_t ID() const { return id; }
+
+  Task& Sleep();
+  Task& Wakeup();
+
  private:
   uint64_t id;
   std::vector<uint64_t> stack;
@@ -36,11 +44,18 @@ class TaskManager {
  public:
   TaskManager();
   Task& NewTask();
-  void SwitchTask();
+  void SwitchTask(bool current_sleep = false);
+
+  void Sleep(Task* task);
+  Error Sleep(uint64_t task_id);
+
+  void Wakeup(Task* task);
+  Error Wakeup(uint64_t task_id);
 
  private:
   std::vector<std::unique_ptr<Task>> tasks;
   uint64_t latest_id{0};
+  std::deque<Task*> running;
   size_t current_task_index{0};
 };
 

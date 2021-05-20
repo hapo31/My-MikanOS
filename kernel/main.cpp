@@ -283,9 +283,13 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
   InitializeTask();
 
-  task_manager->NewTask().InitContext(UpdateLifeGame, 0xdeadbeefc0ffee);
-  task_manager->NewTask().InitContext(TaskIdle, 0xdeadbeef);
-  task_manager->NewTask().InitContext(TaskIdle, 0xc0ffee);
+  const auto lifegame_taskid =
+      task_manager->NewTask()
+          .InitContext(UpdateLifeGame, 0xdeadbeefc0ffee)
+          .Wakeup()
+          .ID();
+  task_manager->NewTask().InitContext(TaskIdle, 0xdeadbeef).Wakeup();
+  task_manager->NewTask().InitContext(TaskIdle, 0xc0ffee).Wakeup();
 
   char str[128];
 
@@ -331,6 +335,12 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
       case Message::kKeyPush:
         if (msg.arg.keyboard.ascii != 0) {
           InputTextWindow(msg.arg.keyboard.ascii);
+        }
+
+        if (msg.arg.keyboard.ascii == 's') {
+          task_manager->Sleep(lifegame_taskid);
+        } else if (msg.arg.keyboard.ascii == 'w') {
+          task_manager->Wakeup(lifegame_taskid);
         }
         break;
       default:
