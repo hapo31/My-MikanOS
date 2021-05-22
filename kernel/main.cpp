@@ -316,7 +316,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
     __asm__("cli");
 
-    auto msg = main_task.ReceivedMessage();
+    auto msg = main_task.ReceiveMessage();
     if (!msg) {
       main_task.Sleep();
       __asm__("sti");
