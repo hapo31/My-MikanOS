@@ -13,6 +13,9 @@
 
 namespace {
 TaskContext* current_task;
+void TaskIdle(uint64_t task_id, uint64_t data) {
+  while (true) __asm__("hlt");
+}
 }  // namespace
 
 Task::Task(uint64_t id_, level_t level_) : id(id_), level(level_) {}
@@ -64,8 +67,12 @@ std::optional<Message> Task::ReceiveMessage() {
 }
 
 TaskManager::TaskManager() {
-  Task& task = NewTask().SetLevel(current_level).SetRunning(true);
+  Task& task = NewTask(current_level).SetRunning(true);
   running[current_level].emplace_back(&task);
+
+  Task& idle = NewTask(0).InitContext(TaskIdle, 0).SetRunning(true);
+
+  running[0].emplace_back(&idle);
 }
 
 Task& TaskManager::NewTask(level_t level) {

@@ -229,11 +229,6 @@ void UpdateLifeGame(uint64_t task_id, uint64_t data) {
   }
 }
 
-void TaskIdle(uint64_t task_id, uint64_t data) {
-  printk("TaskIdle: task_id=%lu, data=%lx\n", task_id, data);
-  while (true) __asm__("hlt");
-}
-
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
 extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
@@ -292,8 +287,6 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           .InitContext(UpdateLifeGame, 0xdeadbeefc0ffee)
           .Wakeup()
           .ID();
-  task_manager->NewTask().InitContext(TaskIdle, 0xdeadbeef).Wakeup();
-  task_manager->NewTask().InitContext(TaskIdle, 0xc0ffee).Wakeup();
 
   usb::xhci::Initialize();
   InitializeKeyboard();
