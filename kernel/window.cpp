@@ -27,8 +27,8 @@ void Window::DrawTo(FrameBuffer& dest, Vector2D<int> pos,
   if (!transparent_color) {
     Rectangle<int> window_area{pos, Size()};
     Rectangle<int> intersection = area & window_area;
-    dest.Copy(intersection.pos, shadow_buffer,
-              {intersection.pos - pos, intersection.size});
+    dest.CopyFrom(shadow_buffer, intersection.pos,
+                  {intersection.pos - pos, intersection.size});
     return;
   }
 

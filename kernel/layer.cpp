@@ -36,9 +36,9 @@ void LayerManager::SetFrameBuffer(FrameBuffer* screen) {
 
 void LayerManager::Draw(const Rectangle<int>& area) const {
   for (auto layer : layer_stack) {
-    layer->DrawTo(*screen, area);
+    layer->DrawTo(back_buffer, area);
   }
-  screen->Copy(area.pos, back_buffer, area);
+  screen->CopyFrom(back_buffer, area.pos, area);
 }
 
 void LayerManager::Draw(unsigned int id) const {
@@ -57,7 +57,7 @@ void LayerManager::Draw(unsigned int id) const {
     }
   }
 
-  screen->Copy(window_area.pos, back_buffer, window_area);
+  screen->CopyFrom(back_buffer, window_area.pos, window_area);
 }
 
 void LayerManager::Move(unsigned int id, Vector2D<int> new_pos) {
@@ -163,7 +163,7 @@ void InitializeLayer() {
   auto console_window = std::make_shared<Window>(
       Console::kColumns * 8, Console::kRows * 16, screen_config.pixel_format);
 
-  console->SetWindow(console_window);
+  console->SetWriter(console_window);
 
   screen = new FrameBuffer();
   if (auto err = screen->Initialize(screen_config)) {

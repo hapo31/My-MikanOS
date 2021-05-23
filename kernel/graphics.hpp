@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <memory>
 
 #include "frame_buffer_config.hpp"
 
@@ -146,7 +147,7 @@ const PixelColor kDesktopFGColor{0, 255, 255};
 void DrawDesktop(PixelWriter &writer);
 
 extern FrameBufferConfig screen_config;
-extern PixelWriter *screen_writer;
+extern std::shared_ptr<PixelWriter> screen_writer;
 Vector2D<int> ScreenSize();
 
 void InitializeGraphics(const FrameBufferConfig &config);

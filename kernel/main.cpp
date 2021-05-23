@@ -324,7 +324,6 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     sprintf(str, "%010lu", count);
     FillRect(*main_window, {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
     WriteString(*main_window, 24, 28, {0, 0, 0}, str);
-    // layer_manager->Draw(1);
     layer_manager->Draw(main_window_layer_id);
 
     __asm__("cli");

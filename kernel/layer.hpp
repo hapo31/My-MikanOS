@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "font.hpp"
 #include "graphics.hpp"
 #include "message.hpp"
 #include "window.hpp"
@@ -57,6 +58,12 @@ class LayerManager {
 
   void Hide(unsigned int id);
   Layer* FindLayerByPosition(Vector2D<int> pos, uint exclude_id) const;
+
+  auto layer_stack_begin() const { return layer_stack.cbegin(); }
+  auto layer_stack_end() const { return layer_stack.cend(); }
+
+  auto layers_begin() const { return layers.cbegin(); }
+  auto layers_end() const { return layers.cend(); }
 
  private:
   FrameBuffer* screen{nullptr};

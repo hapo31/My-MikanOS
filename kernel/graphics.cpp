@@ -46,7 +46,7 @@ void DrawDesktop(PixelWriter& writer) {
   DrawRect(writer, {10, height - 40}, {30, 30}, {160, 160, 160});
 }
 
-PixelWriter* screen_writer;
+std::shared_ptr<PixelWriter> screen_writer;
 FrameBufferConfig screen_config;
 
 Vector2D<int> ScreenSize() {
@@ -57,12 +57,15 @@ Vector2D<int> ScreenSize() {
 namespace {
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 
-PixelWriter* CreateFrameWriter(const FrameBufferConfig* config) {
+std::shared_ptr<PixelWriter> CreateFrameWriter(
+    const FrameBufferConfig* config) {
   switch (config->pixel_format) {
     case kPixelRGBResv8BitPerColor:
-      return new (pixel_writer_buf) RGBResv8BitPerColorPixelWriter(*config);
+      return std::shared_ptr<PixelWriter>(
+          new (pixel_writer_buf) RGBResv8BitPerColorPixelWriter(*config));
     case kPixelBGRResv8BitPerColor:
-      return new (pixel_writer_buf) BGRResv8BitPerColorPixelWriter(*config);
+      return std::shared_ptr<PixelWriter>(
+          new (pixel_writer_buf) BGRResv8BitPerColorPixelWriter(*config));
 
     default:
       exit(1);

@@ -33,22 +33,12 @@ void Console::PutString(const char *str) {
   }
 }
 
-void Console::SetWriter(PixelWriter *writer) {
+void Console::SetWriter(const std::shared_ptr<PixelWriter> &writer) {
   if (this->writer == writer) {
     return;
   }
 
   this->writer = writer;
-  window.reset();
-  Refresh();
-}
-
-void Console::SetWindow(const std::shared_ptr<Window> &window) {
-  if (this->window == window) {
-    return;
-  }
-  this->window = window;
-  writer = window.get();
   Refresh();
 }
 
@@ -59,24 +49,22 @@ void Console::NewLine() {
     return;
   }
 
-  if (window) {
-    Rectangle<int> move_src{{0, 16}, {8 * kColumns, 16 * (kRows - 1)}};
-    window->Move({0, 0}, move_src);
-    FillRect(*writer, {0, 16 * (kRows - 1)}, {8 * kColumns, 16}, bgColor);
-  } else {
-    FillRect(*writer, {0, 0}, {8 * kColumns, 16 * kRows}, bgColor);
-    for (int row = 0; row < kRows - 1; ++row) {
-      memcpy(buffer[row], buffer[row + 1], kColumns + 1);
-      WriteString(*writer, 0, 16 * row, fgColor, buffer[row]);
-    }
-    memset(buffer[kRows - 1], 0, kColumns + 1);
+  FillRect(*writer, {0, 0}, {8 * kColumns, 16 * kRows}, bgColor);
+  for (int row = 0; row < kRows - 1; ++row) {
+    memcpy(buffer[row], buffer[row + 1], kColumns + 1);
+    WriteString(*writer, 0, 16 * row, fgColor, buffer[row]);
   }
+  memset(buffer[kRows - 1], 0, kColumns + 1);
 }
 
 void Console::Refresh() {
   FillRect(*writer, {0, 0}, {8 * kColumns, 16 * kRows}, bgColor);
   for (int row = 0; row < kRows; ++row) {
     WriteString(*writer, 0, 16 * row, fgColor, buffer[row]);
+  }
+
+  if (layer_manager) {
+    layer_manager->Draw(layer_id);
   }
 }
 
@@ -92,6 +80,8 @@ void InitializeConsole() {
 }
 
 int printk(const char *format, ...) {
+  auto src_writer = console->writer;
+  console->SetWriter(::screen_writer);
   va_list ap;
   int result;
   char s[1024];
@@ -99,5 +89,7 @@ int printk(const char *format, ...) {
   result = vsprintf(s, format, ap);
   va_end(ap);
   console->PutString(s);
+
+  console->SetWriter(src_writer);
   return result;
 }

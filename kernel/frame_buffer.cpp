@@ -63,8 +63,8 @@ Error FrameBuffer::Initialize(const FrameBufferConfig& config) {
   return MAKE_ERROR(Error::kSuccess);
 }
 
-Error FrameBuffer::Copy(Vector2D<int> pos, const FrameBuffer& src,
-                        const Rectangle<int>& src_area) {
+Error FrameBuffer::CopyFrom(const FrameBuffer& src, Vector2D<int> pos,
+                            const Rectangle<int>& src_area) {
   if (config.pixel_format != src.config.pixel_format) {
     return MAKE_ERROR(Error::kUnknownPixelFormat);
   }
