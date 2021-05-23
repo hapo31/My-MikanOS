@@ -171,9 +171,10 @@ Error TaskManager::Wakeup(uint64_t task_id, level_t level) {
   return MAKE_ERROR(Error::kSuccess);
 }
 
-Error TaskManager::SendMessage(uint64_t id, const Message& msg) {
-  auto it = std::find_if(tasks.begin(), tasks.end(),
-                         [id](const auto& task) { return task->ID() == id; });
+Error TaskManager::SendMessage(uint64_t task_id, const Message& msg) {
+  auto it = std::find_if(
+      tasks.begin(), tasks.end(),
+      [task_id](const auto& task) { return task->ID() == task_id; });
 
   if (it == tasks.end()) {
     return MAKE_ERROR(Error::kNoSuchTask);

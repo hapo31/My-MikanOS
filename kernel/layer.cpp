@@ -70,7 +70,12 @@ void LayerManager::Move(unsigned int id, Vector2D<int> new_pos) {
 }
 
 void LayerManager::MoveRelative(unsigned int id, Vector2D<int> pos_diff) {
-  FindLayer(id)->MoveRelative(pos_diff);
+  auto layer = FindLayer(id);
+  const auto window_size = layer->GetWindow()->Size();
+  const auto old_pos = layer->GetPosition();
+  layer->MoveRelative(pos_diff);
+  Draw({old_pos, window_size});
+  Draw(id);
 }
 
 void LayerManager::UpDown(unsigned int id, int new_height) {
@@ -175,8 +180,21 @@ void InitializeLayer() {
   auto console_layer_id =
       layer_manager->NewLayer().SetWindow(console_window).Move({0, 0}).ID();
 
-  console->SetLayerID(console_layer_id);
-
   layer_manager->UpDown(bglayer_id, 0);
   layer_manager->UpDown(console_layer_id, 1);
+}
+
+void ProcessLayerMessage(const Message& msg) {
+  const auto& arg = msg.arg.layer;
+  switch (arg.op) {
+    case LayerOperation::Move:
+      layer_manager->Move(arg.layer_id, {arg.x, arg.y});
+      break;
+    case LayerOperation::MoveRelative:
+      layer_manager->MoveRelative(arg.layer_id, {arg.x, arg.y});
+      break;
+    case LayerOperation::Draw:
+      layer_manager->Draw(arg.layer_id);
+      break;
+  }
 }

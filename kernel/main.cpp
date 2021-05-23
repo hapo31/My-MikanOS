@@ -160,6 +160,8 @@ void UpdateLifeGame(uint64_t task_id, uint64_t data) {
   auto field_color = ToColor(field_color_bytes);
   auto cell_color = ToColor(cell_color_bytes);
 
+  auto &task = task_manager->CurrentTask();
+
   while (true) {
     {
       std::vector<int> nextField(field);
@@ -225,7 +227,25 @@ void UpdateLifeGame(uint64_t task_id, uint64_t data) {
 
     gen++;
 
-    layer_manager->Draw(lifegame_window_layer_id);
+    Message msg{Message::kLayer, task_id};
+    msg.arg.layer.layer_id = lifegame_window_layer_id;
+    msg.arg.layer.op = LayerOperation::Draw;
+    asm("cli");
+    task_manager->SendMessage(1, msg);
+    asm("sti");
+
+    while (true) {
+      asm("cli");
+      auto msg = task.ReceiveMessage();
+      if (!msg) {
+        task.Sleep();
+        asm("sti");
+        continue;
+      }
+      if (msg->type == Message::kLayerFinish) {
+        break;
+      }
+    }
   }
 }
 
@@ -266,8 +286,6 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeTextWindow();
   InitializeLifeGame(65, 40);
 
-  layer_manager->Draw({{0, 0}, screen_size});
-
   acpi::Initialize(acpi_table);
   InitializeLAPICTimer();
 
@@ -292,6 +310,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeKeyboard();
   InitializeMouse();
 
+  layer_manager->Draw({{0, 0}, screen_size});
+
   char str[128];
 
 #pragma region メッセージループ
@@ -304,7 +324,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     sprintf(str, "%010lu", count);
     FillRect(*main_window, {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
     WriteString(*main_window, 24, 28, {0, 0, 0}, str);
-    layer_manager->Draw(1);
+    // layer_manager->Draw(1);
     layer_manager->Draw(main_window_layer_id);
 
     __asm__("cli");
@@ -345,6 +365,15 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           task_manager->Wakeup(lifegame_taskid);
         }
         break;
+
+      case Message::kLayer:
+        ProcessLayerMessage(*msg);
+        asm("cli");
+        task_manager->SendMessage(msg->src_task,
+                                  Message{Message::kLayerFinish});
+        asm("sti");
+        break;
+
       default:
         Log(kError, "Unknown message type: %d\n", msg->type);
     }
