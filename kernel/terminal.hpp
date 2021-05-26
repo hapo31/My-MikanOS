@@ -11,6 +11,11 @@ class Terminal {
   Terminal();
   unsigned int LayerID() const { return layer_id; }
   void BlinkCursor();
+  Rectangle<int> CursorArea() const {
+    return {ToplevelWindow::kTopLeftMargin +
+                Vector2D<int>{4 + 8 * cursor.x, 5 + 16 * cursor.y},
+            {7, 15}};
+  }
 
  private:
   std::shared_ptr<ToplevelWindow> window;

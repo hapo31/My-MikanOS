@@ -60,6 +60,27 @@ void LayerManager::Draw(unsigned int id) const {
   screen->CopyFrom(back_buffer, window_area.pos, window_area);
 }
 
+void LayerManager::Draw(unsigned int id, Rectangle<int> area) const {
+  bool draw = false;
+  Rectangle<int> window_area;
+  for (auto layer : layer_stack) {
+    if (layer->ID() == id) {
+      window_area.size = layer->GetWindow()->Size();
+      window_area.pos = layer->GetPosition();
+      if (area.size.x >= 0 || area.size.y >= 0) {
+        area.pos = area.pos + window_area.pos;
+        window_area = window_area & area;
+      }
+      draw = true;
+    }
+    if (draw) {
+      layer->DrawTo(back_buffer, window_area);
+    }
+  }
+
+  screen->CopyFrom(back_buffer, window_area.pos, window_area);
+}
+
 void LayerManager::Move(unsigned int id, Vector2D<int> new_pos) {
   auto layer = FindLayer(id);
   const auto window_size = layer->GetWindow()->Size();
@@ -226,6 +247,9 @@ void ProcessLayerMessage(const Message& msg) {
       break;
     case LayerOperation::Draw:
       layer_manager->Draw(arg.layer_id);
+      break;
+    case LayerOperation::DrawArea:
+      layer_manager->Draw(arg.layer_id, {{arg.x, arg.y}, {arg.w, arg.h}});
       break;
   }
 }
