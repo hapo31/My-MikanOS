@@ -58,12 +58,17 @@ class LayerManager {
 
   void Hide(unsigned int id);
   Layer* FindLayerByPosition(Vector2D<int> pos, uint exclude_id) const;
+  Layer* FindLayer(unsigned int id);
+
+  int GetHeight(unsigned int id);
 
   auto layer_stack_begin() const { return layer_stack.cbegin(); }
   auto layer_stack_end() const { return layer_stack.cend(); }
 
   auto layers_begin() const { return layers.cbegin(); }
   auto layers_end() const { return layers.cend(); }
+
+  auto size() const { return layer_stack.size(); }
 
  private:
   FrameBuffer* screen{nullptr};
@@ -72,9 +77,22 @@ class LayerManager {
   std::vector<std::unique_ptr<Layer>> layers{};
   std::vector<Layer*> layer_stack{};
   unsigned int latest_id{0};
-
-  Layer* FindLayer(unsigned int id);
 };
+
+class ActiveLayer {
+ public:
+  ActiveLayer(LayerManager& manager);
+  void SetMouseLayer(unsigned int mouse_layer);
+  void Activate(unsigned int layer_id);
+  unsigned int GetActive() const { return active_layer; }
+
+ private:
+  LayerManager& manager;
+  unsigned int active_layer{0};
+  unsigned int mouse_layer{0};
+};
+
+extern ActiveLayer* active_layer;
 
 extern LayerManager* layer_manager;
 

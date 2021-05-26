@@ -5,11 +5,12 @@
 
 #include "frame_buffer.hpp"
 #include "graphics.hpp"
+#include "logger.hpp"
 
 class Window : public PixelWriter {
  public:
   Window(int width, int height, PixelFormat shadow_format);
-  ~Window() = default;
+  virtual ~Window() = default;
 
   Window(const Window& rhs) = delete;
   Window& operator=(const Window& rhs) = delete;
@@ -31,6 +32,9 @@ class Window : public PixelWriter {
   PixelColor& At(int x, int y) { return data[y][x]; }
   const PixelColor& At(int x, int y) const { return data[y][x]; }
 
+  virtual void Activate() {}
+  virtual void Deactivate() {}
+
  private:
   int width, height;
 
@@ -40,5 +44,45 @@ class Window : public PixelWriter {
   FrameBuffer shadow_buffer{};
 };
 
+class ToplevelWindow : public Window {
+ public:
+  static constexpr Vector2D<int> kTopLeftMargin{4, 24};
+  static constexpr Vector2D<int> kBottomRightMargin{4, 4};
+
+  class WindowInnerWriter : public PixelWriter {
+   public:
+    WindowInnerWriter(ToplevelWindow& window_) : window(window_) {}
+
+    void Write(const PixelColor& c, int x, int y) override {
+      window.Write(c, x + kTopLeftMargin.x, y + kTopLeftMargin.y);
+    }
+
+    int Width() const override {
+      return window.Width() - kTopLeftMargin.x - kBottomRightMargin.x;
+    }
+    int Height() const override {
+      return window.Height() - kTopLeftMargin.y - kBottomRightMargin.y;
+      ;
+    }
+
+   private:
+    ToplevelWindow& window;
+  };
+
+  ToplevelWindow(int width, int height, PixelFormat shadow_format,
+                 const std::string& title);
+
+  virtual void Activate() override;
+  virtual void Deactivate() override;
+
+  Vector2D<int> InnerSize() const;
+  WindowInnerWriter& InnerWriter() { return inner_writer; }
+
+ private:
+  WindowInnerWriter inner_writer{*this};
+  std::string title;
+};
+
 void DrawWindow(PixelWriter& writer, const char* title);
 void DrawTextBox(PixelWriter& writer, Vector2D<int> pos, Vector2D<int> size);
+void DrawWindowTitle(PixelWriter& writer, const char* title, bool active);

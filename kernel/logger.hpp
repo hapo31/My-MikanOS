@@ -10,3 +10,4 @@ enum LogLevel {
 void SetLogLevel(LogLevel level);
 
 int Log(LogLevel level, const char *format, ...);
+int printk(const char *format, ...);

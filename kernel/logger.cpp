@@ -1,18 +1,15 @@
 #include "logger.hpp"
+
 #include <cstddef>
 #include <cstdio>
 
 #include "console.hpp"
 
 namespace {
-  LogLevel log_level = kDebug;
+LogLevel log_level = kDebug;
 }
 
-extern Console *console;
-
-void SetLogLevel(LogLevel level) {
-  log_level = level;
-}
+void SetLogLevel(LogLevel level) { log_level = level; }
 
 int Log(LogLevel level, const char* format, ...) {
   if (level > log_level) {

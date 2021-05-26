@@ -36,13 +36,16 @@ void operator delete(void *obj) noexcept {}
 
 void DrawTextCursor(bool visible);
 
-std::shared_ptr<Window> main_window;
+void Exit() {
+  while (true) asm("hlt");
+}
+
+std::shared_ptr<ToplevelWindow> main_window;
 unsigned int main_window_layer_id;
 
 void InitializeMainWindow() {
-  main_window = std::make_shared<Window>(160, 52, screen_config.pixel_format);
-  DrawWindow(*main_window, "fuckOS!");
-
+  main_window = std::make_shared<ToplevelWindow>(
+      160, 52, screen_config.pixel_format, "fuckOS!");
   main_window_layer_id = layer_manager->NewLayer()
                              .SetWindow(main_window)
                              .SetDraggable(true)
@@ -52,17 +55,17 @@ void InitializeMainWindow() {
   layer_manager->UpDown(main_window_layer_id, std::numeric_limits<int>::max());
 }
 
-std::shared_ptr<Window> text_window;
+std::shared_ptr<ToplevelWindow> text_window;
 unsigned int text_window_layer_id;
 
 void InitializeTextWindow() {
-  const int win_w = 250;
+  const int win_w = 160;
   const int win_h = 52;
 
-  text_window =
-      std::make_shared<Window>(win_w, win_h, screen_config.pixel_format);
-  DrawWindow(*text_window, "Text Box Test(Text dakeni)");
-  DrawTextBox(*text_window, {4, 24}, {win_w - 8, win_h - 24 - 4});
+  text_window = std::make_shared<ToplevelWindow>(
+      win_w, win_h, screen_config.pixel_format, "Text Box Test(Text dakeni)");
+
+  DrawTextBox(text_window->InnerWriter(), {0, 0}, text_window->InnerSize());
   DrawTextCursor(true);
   text_window_layer_id = layer_manager->NewLayer()
                              .SetWindow(text_window)
@@ -77,8 +80,8 @@ int text_window_index;
 
 void DrawTextCursor(bool visible) {
   const auto color = visible ? ToColor(0) : ToColor(0xffffff);
-  const auto pos = Vector2D<int>{8 + 8 * text_window_index, 24 + 5};
-  FillRect(*text_window, pos, {7, 15}, color);
+  const auto pos = Vector2D<int>{4 + 8 * text_window_index, 5};
+  FillRect(text_window->InnerWriter(), pos, {7, 15}, color);
 }
 
 void InputTextWindow(char c) {
@@ -86,17 +89,18 @@ void InputTextWindow(char c) {
     return;
   }
 
-  auto pos = []() { return Vector2D<int>{8 + 8 * text_window_index, 24 + 6}; };
-  const int max_chars = (text_window->Width() - 16) / 8;
+  auto pos = []() { return Vector2D<int>{4 + 8 * text_window_index, 6}; };
+  const int max_chars = (text_window->InnerSize().x - 8) / 8;
+  auto &writer = text_window->InnerWriter();
   if (c == '\b' && text_window_index > 0) {
     DrawTextCursor(false);
     --text_window_index;
-    FillRect(*text_window, pos(), {8, 16}, ToColor(0xffffff));
+    FillRect(writer, pos(), {8, 16}, ToColor(0xffffff));
     DrawTextCursor(true);
   } else if (c >= ' ' && text_window_index < max_chars) {
     DrawTextCursor(false);
     const auto p = pos();
-    WriteAscii(*text_window, p.x, p.y, ToColor(0), c);
+    WriteAscii(writer, p.x, p.y, ToColor(0), c);
     ++text_window_index;
     DrawTextCursor(true);
   }
@@ -110,7 +114,7 @@ const auto kFieldColor = ToColor(0x0000ff);
 int field_width;
 int field_height;
 
-std::shared_ptr<Window> lifegame_window;
+std::shared_ptr<ToplevelWindow> lifegame_window;
 unsigned int lifegame_window_layer_id;
 
 std::vector<int> field;
@@ -123,8 +127,8 @@ uint32_t getRand(void) {
 }
 
 void InitializeLifeGame(int width, int height) {
-  const int win_h = kCellSize * height;
-  const int win_w = kCellSize * width;
+  const int win_h = kCellSize * (height + 1);
+  const int win_w = kCellSize * (width + 1);
 
   field_width = width;
   field_height = height;
@@ -136,10 +140,10 @@ void InitializeLifeGame(int width, int height) {
     }
   }
 
-  lifegame_window =
-      std::make_shared<Window>(win_w, win_h, screen_config.pixel_format);
+  lifegame_window = std::make_shared<ToplevelWindow>(
+      win_w, win_h, screen_config.pixel_format, "life game");
 
-  FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, kFieldColor);
+  FillRect(lifegame_window->InnerWriter(), {1, 1}, {win_w, win_h}, kFieldColor);
 
   lifegame_window_layer_id = layer_manager->NewLayer()
                                  .SetWindow(lifegame_window)
@@ -211,11 +215,13 @@ void UpdateLifeGame(uint64_t task_id, uint64_t data) {
     }
     const int win_h = kCellSize * field_height;
     const int win_w = kCellSize * field_width;
-    FillRect(*lifegame_window, {1, 1}, {win_w - 2, win_h - 2}, field_color);
+    FillRect(lifegame_window->InnerWriter(), {1, 1}, {win_w, win_h},
+             field_color);
     for (int y = 0; y < field_height; ++y) {
       for (int x = 0; x < field_width; ++x) {
         if (field[y * field_width + x]) {
-          FillRect(*lifegame_window, {x * kCellSize, y * kCellSize},
+          FillRect(lifegame_window->InnerWriter(),
+                   {(x - 1) * kCellSize, (y - 1) * kCellSize},
                    {kCellSize, kCellSize}, cell_color);
         }
       }
@@ -223,7 +229,7 @@ void UpdateLifeGame(uint64_t task_id, uint64_t data) {
 
     char buf[32];
     sprintf(buf, "%d", gen);
-    WriteString(*lifegame_window, 0, 0, ToColor(0xff0000), buf);
+    WriteString(lifegame_window->InnerWriter(), 0, 0, ToColor(0xff0000), buf);
 
     gen++;
 
@@ -260,7 +266,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   const auto screen_size = ScreenSize();
 
   InitializeGraphics(config);
-  InitializeConsole();
+  InitializeDirectConsole();
 
   /*
     ログレベルの設定
@@ -286,6 +292,9 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeTextWindow();
   InitializeLifeGame(65, 40);
 
+  layer_manager->Draw({{0, 0}, screen_size});
+  layer_manager->Draw(1);
+
   acpi::Initialize(acpi_table);
   InitializeLAPICTimer();
 
@@ -310,7 +319,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeKeyboard();
   InitializeMouse();
 
-  layer_manager->Draw({{0, 0}, screen_size});
+  active_layer->Activate(lifegame_window_layer_id);
 
   char str[128];
 
@@ -322,8 +331,9 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
     __asm__("sti");
 
     sprintf(str, "%010lu", count);
-    FillRect(*main_window, {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
-    WriteString(*main_window, 24, 28, {0, 0, 0}, str);
+    FillRect(main_window->InnerWriter(), {20, 4}, {8 * 10, 16},
+             {0xc6, 0xc6, 0xc6});
+    WriteString(main_window->InnerWriter(), 20, 4, {0, 0, 0}, str);
     layer_manager->Draw(main_window_layer_id);
 
     __asm__("cli");
@@ -354,14 +364,17 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
         break;
       case Message::kKeyPush:
-        if (msg->arg.keyboard.ascii != 0) {
+        if (auto act = active_layer->GetActive();
+            msg->arg.keyboard.ascii != 0 && act == text_window_layer_id) {
           InputTextWindow(msg->arg.keyboard.ascii);
-        }
-
-        if (msg->arg.keyboard.ascii == 's') {
-          task_manager->Sleep(lifegame_taskid);
-        } else if (msg->arg.keyboard.ascii == 'w') {
-          task_manager->Wakeup(lifegame_taskid);
+        } else if (act == lifegame_window_layer_id) {
+          if (msg->arg.keyboard.ascii == 's') {
+            Log(kInfo, "sleep life\n");
+            task_manager->Sleep(lifegame_taskid);
+          } else if (msg->arg.keyboard.ascii == 'w') {
+            task_manager->Wakeup(lifegame_taskid);
+            Log(kInfo, "wakeup life\n");
+          }
         }
         break;
 
