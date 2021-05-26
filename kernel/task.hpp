@@ -85,12 +85,17 @@ class TaskManager {
 
   Task& CurrentTask();
 
+  unsigned int Counter() const { return counter; }
+  void SetCounter(unsigned int count) { counter = count; }
+
  private:
   std::vector<std::unique_ptr<Task>> tasks{};
   uint64_t latest_id{0};
   std::array<std::deque<Task*>, kLevelMax + 1> running{};
   level_t current_level{kLevelMax};
   bool level_changed{false};
+
+  unsigned int counter;
 
   void ChangeLevelRunning(Task* task, level_t level);
 };

@@ -102,7 +102,7 @@ void ProcessLayerMessage(const Message& msg);
 
 constexpr Message MakeLayerMessage(uint64_t task_id, unsigned int layer_id,
                                    LayerOperation op,
-                                   const Rectangle<int>& area) {
+                                   const Rectangle<int>& area = {{}, {}}) {
   Message msg{Message::kLayer, task_id};
   msg.arg.layer.layer_id = layer_id;
   msg.arg.layer.op = op;

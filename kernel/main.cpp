@@ -11,6 +11,7 @@
 
 #include "acpi.hpp"
 #include "asmfunc.h"
+#include "benchmark.hpp"
 #include "console.hpp"
 #include "font.hpp"
 #include "frame_buffer_config.hpp"
@@ -52,7 +53,7 @@ unsigned int main_window_layer_id;
 
 void InitializeMainWindow() {
   main_window = std::make_shared<ToplevelWindow>(
-      160, 52, screen_config.pixel_format, "fuckOS!");
+      160, 30, screen_config.pixel_format, "fuckOS!");
   main_window_layer_id = layer_manager->NewLayer()
                              .SetWindow(main_window)
                              .SetDraggable(true)
@@ -67,7 +68,7 @@ unsigned int text_window_layer_id;
 
 void InitializeTextWindow() {
   const int win_w = 160;
-  const int win_h = 52;
+  const int win_h = 30;
 
   text_window = std::make_shared<ToplevelWindow>(
       win_w, win_h, screen_config.pixel_format, "Text Box Test(Text dakeni)");
@@ -325,6 +326,11 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   const auto terminal_taskid =
       task_manager->NewTask().InitContext(TaskTerminal, 0).Wakeup().ID();
 
+  InitializeBenchMark();
+
+  const auto benchmark_taskid =
+      task_manager->NewTask().InitContext(TaskBenchMark, 0).Wakeup().ID();
+
   usb::xhci::Initialize();
   InitializeKeyboard();
   InitializeMouse();
@@ -374,6 +380,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           {
             ScopedLock lock;
             task_manager->SendMessage(terminal_taskid, *msg);
+            task_manager->SendMessage(benchmark_taskid, *msg);
           }
         }
 
