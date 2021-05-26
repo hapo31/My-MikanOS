@@ -79,11 +79,8 @@ void Window::Move(Vector2D<int> dest_pos, const Rectangle<int>& src) {
 ToplevelWindow::ToplevelWindow(int width_, int height_,
                                PixelFormat shadow_format_,
                                const std::string& title_)
-    : Window{width_ + kTopLeftMargin.x + kBottomRightMargin.y,
-             height_ + kBottomRightMargin.y +
-                 kBottomRightMargin
-                     .y,  // フチの部分の大きさだけ欲しいので2回kBottomRightMarginって書いてるのは正しい
-             shadow_format_},
+    : Window{width_ + kTopLeftMargin.x + kBottomRightMargin.x,
+             height_ + kTopLeftMargin.y + kBottomRightMargin.y, shadow_format_},
       title(title_) {
   DrawWindow(*this, title.c_str());
 }
@@ -96,6 +93,11 @@ void ToplevelWindow::Activate() {
 void ToplevelWindow::Deactivate() {
   Window::Deactivate();
   DrawWindowTitle(*this, title.c_str(), false);
+}
+
+void ToplevelWindow::Move(Vector2D<int> dest_pos, const Rectangle<int>& src) {
+  Window::Move(dest_pos + kTopLeftMargin,
+               {{src.pos + kTopLeftMargin}, src.size});
 }
 
 Vector2D<int> ToplevelWindow::InnerSize() const {

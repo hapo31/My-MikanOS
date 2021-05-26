@@ -16,7 +16,7 @@ class Window : public PixelWriter {
   Window& operator=(const Window& rhs) = delete;
 
   void Write(const PixelColor& c, int x, int y) override;
-  void Move(Vector2D<int> dest_pos, const Rectangle<int>& src);
+  virtual void Move(Vector2D<int> dest_pos, const Rectangle<int>& src);
 
   int Width() const override { return width; }
   int Height() const override { return height; }
@@ -40,7 +40,6 @@ class Window : public PixelWriter {
 
   std::vector<std::vector<PixelColor>> data{};
   std::optional<PixelColor> transparent_color{std::nullopt};
-
   FrameBuffer shadow_buffer{};
 };
 
@@ -59,13 +58,8 @@ class ToplevelWindow : public Window {
       window.Write(c, x + kTopLeftMargin.x, y + kTopLeftMargin.y);
     }
 
-    int Width() const override {
-      return window.Width() - kTopLeftMargin.x - kBottomRightMargin.x;
-    }
-    int Height() const override {
-      return window.Height() - kTopLeftMargin.y - kBottomRightMargin.y;
-      ;
-    }
+    int Width() const override { return window.Width() - kMarginX; }
+    int Height() const override { return window.Height() - kMarginY; }
 
    private:
     ToplevelWindow& window;
@@ -74,6 +68,7 @@ class ToplevelWindow : public Window {
   ToplevelWindow(int width, int height, PixelFormat shadow_format,
                  const std::string& title);
 
+  virtual void Move(Vector2D<int> dest_pos, const Rectangle<int>& src) override;
   virtual void Activate() override;
   virtual void Deactivate() override;
 
