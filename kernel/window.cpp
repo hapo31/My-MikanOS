@@ -61,7 +61,12 @@ void Window::Move(Vector2D<int> dest_pos, const Rectangle<int>& src) {
 ToplevelWindow::ToplevelWindow(int width_, int height_,
                                PixelFormat shadow_format_,
                                const std::string& title_)
-    : Window{width_, height_, shadow_format_}, title(title_) {
+    : Window{width_ + kTopLeftMargin.x + kBottomRightMargin.y,
+             height_ + kBottomRightMargin.y +
+                 kBottomRightMargin
+                     .y,  // フチの部分の大きさだけ欲しいので2回kBottomRightMarginって書いてるのは正しい
+             shadow_format_},
+      title(title_) {
   DrawWindow(*this, title.c_str());
 }
 
