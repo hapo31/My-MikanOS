@@ -13,7 +13,7 @@
 
 namespace {
 TaskContext* current_task;
-void TaskIdle(uint64_t task_id, uint64_t data) {
+void TaskIdle(uint64_t task_id, int64_t data) {
   while (true) __asm__("hlt");
 }
 }  // namespace

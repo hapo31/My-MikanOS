@@ -9,14 +9,14 @@ class Console {
   static const int kRows = 30, kColumns = 80;
   Console(const PixelColor &fgColor, const PixelColor &bgColor);
   void PutString(const char *a);
-  void SetWriter(const std::shared_ptr<PixelWriter> &writer);
+  void SetWriter(PixelWriter &writer);
   void SetLayerID(unsigned int id) { layer_id = id; }
   unsigned int LayerID() const;
 
- private:
-  void NewLine();
+ protected:
+  virtual void NewLine();
   void Refresh();
-  std::shared_ptr<PixelWriter> writer;
+  PixelWriter *writer;
   const PixelColor fgColor, bgColor;
   char buffer[kRows][kColumns + 1];
   int cursorRow;
@@ -26,10 +26,25 @@ class Console {
   friend int printk(const char *format, ...);
 };
 
-const PixelColor kConsoleCharColor{200, 200, 200};
+class WindowConsole : public Console {
+ public:
+  using Console::Console;
+  WindowConsole(const PixelColor &fgColor, const PixelColor &bgColor,
+                const std::shared_ptr<ToplevelWindow> &window);
+  void SetWindow(const std::shared_ptr<ToplevelWindow> &window);
+  void NewLine() override;
 
-extern Console *console;
+ private:
+  std::shared_ptr<ToplevelWindow> window;
+};
 
-void InitializeConsole();
+const auto kConsoleBGColor = ToColor(0x2C001E);
+const auto kConsoleCharColor = ToColor(0xEEEEEE);
+
+extern Console *direct_console;
+extern WindowConsole *console;
+
+void InitializeDirectConsole();
+void InitializeWindowConsole();
 
 int printk(const char *format, ...);

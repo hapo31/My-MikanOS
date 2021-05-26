@@ -28,9 +28,16 @@
 #include "queue.hpp"
 #include "segment.hpp"
 #include "task.hpp"
+#include "terminal.hpp"
 #include "timer.hpp"
 #include "usb/xhci/xhci.hpp"
 #include "window.hpp"
+
+class ScopedLock {
+ public:
+  ScopedLock() { asm("cli"); }
+  ~ScopedLock() { asm("sti"); }
+};
 
 void operator delete(void *obj) noexcept {}
 
@@ -155,7 +162,7 @@ void InitializeLifeGame(int width, int height) {
                         std::numeric_limits<int>::max());
 }
 
-void UpdateLifeGame(uint64_t task_id, uint64_t data) {
+void UpdateLifeGame(uint64_t task_id, int64_t data) {
   static uint gen = 0;
 
   auto field_color_bytes = (data >> 32) & 0xffff;
@@ -315,6 +322,9 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           .Wakeup()
           .ID();
 
+  const auto terminal_taskid =
+      task_manager->NewTask().InitContext(TaskTerminal, 0).Wakeup().ID();
+
   usb::xhci::Initialize();
   InitializeKeyboard();
   InitializeMouse();
@@ -353,13 +363,18 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
         break;
       case Message::kTimerTimeout:
         if (msg->arg.timer.value == kTextBoxCursorTimer) {
-          __asm__("cli");
-          timer_manager->AddTimer(
-              Timer{msg->arg.timer.timeout + kTimer1Sec, kTextBoxCursorTimer});
-          __asm__("sti");
+          {
+            ScopedLock lock;
+            timer_manager->AddTimer(Timer{msg->arg.timer.timeout + kTimer1Sec,
+                                          kTextBoxCursorTimer});
+          }
           textbox_cursor_visible = !textbox_cursor_visible;
           DrawTextCursor(textbox_cursor_visible);
           layer_manager->Draw(text_window_layer_id);
+          {
+            ScopedLock lock;
+            task_manager->SendMessage(terminal_taskid, *msg);
+          }
         }
 
         break;
@@ -380,10 +395,10 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
 
       case Message::kLayer:
         ProcessLayerMessage(*msg);
-        asm("cli");
-        task_manager->SendMessage(msg->src_task,
-                                  Message{Message::kLayerFinish});
-        asm("sti");
+        {
+          task_manager->SendMessage(msg->src_task,
+                                    Message{Message::kLayerFinish});
+        }
         break;
 
       default:

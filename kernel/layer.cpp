@@ -196,11 +196,6 @@ void InitializeLayer() {
                                            screen_config.pixel_format);
   DrawDesktop(*bgWindow);
 
-  auto console_window = std::make_shared<Window>(
-      Console::kColumns * 8, Console::kRows * 16, screen_config.pixel_format);
-
-  console->SetWriter(console_window);
-
   screen = new FrameBuffer();
   if (auto err = screen->Initialize(screen_config)) {
     Log(kError,
@@ -213,13 +208,11 @@ void InitializeLayer() {
 
   auto bglayer_id =
       layer_manager->NewLayer().SetWindow(bgWindow).Move({0, 0}).ID();
-  auto console_layer_id =
-      layer_manager->NewLayer().SetWindow(console_window).Move({0, 0}).ID();
 
   layer_manager->UpDown(bglayer_id, 0);
-  layer_manager->UpDown(console_layer_id, 1);
 
   active_layer = new ActiveLayer(*layer_manager);
+  InitializeWindowConsole();
 }
 
 void ProcessLayerMessage(const Message& msg) {

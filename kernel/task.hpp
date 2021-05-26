@@ -21,7 +21,7 @@ struct TaskContext {
 
 extern TaskContext lifegame_context, main_context;
 
-using TaskFunc = void(uint64_t, uint64_t);
+using TaskFunc = void(uint64_t, int64_t);
 
 using level_t = int;
 

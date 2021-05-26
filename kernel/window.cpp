@@ -3,6 +3,24 @@
 #include "font.hpp"
 #include "logger.hpp"
 
+namespace {
+void DrawTextBox(PixelWriter& writer, Vector2D<int> pos, Vector2D<int> size,
+                 const PixelColor& background, const PixelColor& border_light,
+                 const PixelColor& border_dark) {
+  auto fill_rect = [&writer](Vector2D<int> pos, Vector2D<int> size,
+                             const PixelColor& c) {
+    FillRect(writer, pos, size, c);
+  };
+
+  fill_rect(pos + Vector2D<int>{1, 1}, size - Vector2D<int>{2, 2}, background);
+
+  fill_rect(pos, {size.x, 1}, border_dark);
+  fill_rect(pos, {1, size.y}, border_dark);
+  fill_rect(pos + Vector2D<int>{0, size.y}, {size.x, 1}, border_light);
+  fill_rect(pos + Vector2D<int>{size.x, 0}, {1, size.y}, border_light);
+}
+}  // namespace
+
 Window::Window(int width_, int height_, PixelFormat shadow_format)
     : width{width_}, height{height_} {
   data.resize(height);
@@ -116,17 +134,13 @@ void DrawWindow(PixelWriter& writer, const char* title) {
 }
 
 void DrawTextBox(PixelWriter& writer, Vector2D<int> pos, Vector2D<int> size) {
-  auto fill_rect = [&writer](Vector2D<int> pos, Vector2D<int> size,
-                             uint32_t c) {
-    FillRect(writer, pos, size, ToColor(c));
-  };
+  DrawTextBox(writer, pos, size, ToColor(0x000000), ToColor(0xc6c6c6),
+              ToColor(0x848484));
+}
 
-  fill_rect(pos + Vector2D<int>{1, 1}, size - Vector2D<int>{2, 2}, 0xffffff);
-
-  fill_rect(pos, {size.x, 1}, 0x848484);
-  fill_rect(pos, {1, size.y}, 0x848484);
-  fill_rect(pos + Vector2D<int>{0, size.y}, {size.x, 1}, 0xc6c6c6);
-  fill_rect(pos + Vector2D<int>{size.x, 0}, {1, size.y}, 0xc6c6c6);
+void DrawTerminal(PixelWriter& writer, Vector2D<int> pos, Vector2D<int> size) {
+  DrawTextBox(writer, pos, size, ToColor(0x000000), ToColor(0xc6c6c6),
+              ToColor(0x848484));
 }
 
 void DrawWindowTitle(PixelWriter& writer, const char* title, bool active) {
