@@ -160,7 +160,7 @@ void InitializeLifeGame(int width, int height) {
   lifegame_window_layer_id = layer_manager->NewLayer()
                                  .SetWindow(lifegame_window)
                                  .SetDraggable(true)
-                                 .Move({150, 200})
+                                 .Move({400, 0})
                                  .ID();
 
   layer_manager->UpDown(lifegame_window_layer_id,

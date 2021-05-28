@@ -31,7 +31,6 @@ void InitializeBenchMark() {
 void TaskBenchMark(uint64_t task_id, int64_t data) {
   asm("cli");
   Task& task = task_manager->CurrentTask();
-  active_layer->Activate(layer_id);
   asm("sti");
 
   while (true) {
