@@ -107,6 +107,10 @@ void Terminal::ExecuteLine() {
       Print(first_arg);
     }
     Print("\n");
+  } else if (strncmp(command, "clear", 5) == 0) {
+    FillRect(window->InnerWriter(), {4, 4}, {8 * kColumns, 16 * kRows},
+             {0, 0, 0});
+    cursor.y = 0;
   } else if (command[0] != 0) {
     Print("no such command: ");
     Print(command);
@@ -131,11 +135,8 @@ Vector2D<int> Terminal::CalcCursorPos() const {
 }
 
 void Terminal::Scroll() {
-  Rectangle<int> move_src{
-      ToplevelWindow::kTopLeftMargin + Vector2D<int>{4, 4 + 16},
-      {8 * kColumns, 16 * (kRows - 1)}};
-
-  window->Move(ToplevelWindow::kTopLeftMargin + Vector2D<int>{4, 4}, move_src);
+  Rectangle<int> move_src{{4, 4 + 16}, {8 * kColumns, 16 * (kRows - 1)}};
+  window->Move({4, 4}, move_src);
   FillRect(window->InnerWriter(), {4, 4 + 16 * cursor.y}, {8 * kColumns, 16},
            {0, 0, 0});
 }
