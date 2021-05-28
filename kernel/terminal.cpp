@@ -18,6 +18,7 @@ Terminal::Terminal() {
       layer_manager->NewLayer().SetWindow(window).SetDraggable(true).ID();
 
   Print(">");
+  cmd_history.resize(16);
 }
 
 Rectangle<int> Terminal::InputKey(uint8_t modifier, uint8_t keycode,
@@ -27,7 +28,12 @@ Rectangle<int> Terminal::InputKey(uint8_t modifier, uint8_t keycode,
   Rectangle<int> draw_area{CalcCursorPos(), {8 * 2, 16}};
   if (ascii == '\n') {
     line_buf[linebuf_index] = 0;
+    if (linebuf_index > 0) {
+      cmd_history.pop_back();
+      cmd_history.emplace_front(line_buf);
+    }
     linebuf_index = 0;
+    cmd_history_index = -1;
     cursor.x = 0;
     Log(kWarn, "line: %s\n", &line_buf[0]);
     if (cursor.y < kRows - 1) {
@@ -57,6 +63,10 @@ Rectangle<int> Terminal::InputKey(uint8_t modifier, uint8_t keycode,
       WriteAscii(*window, pos.x, pos.y, {255, 255, 255}, ascii);
       ++cursor.x;
     }
+  } else if (keycode == 0x51) {
+    draw_area = HistoryUpDown(-1);
+  } else if (keycode == 0x52) {
+    draw_area = HistoryUpDown(1);
   }
 
   DrawCursor(true);
@@ -151,6 +161,31 @@ void Terminal::Scroll() {
   window->Move({4, 4}, move_src);
   FillRect(window->InnerWriter(), {4, 4 + 16 * cursor.y}, {8 * kColumns, 16},
            {0, 0, 0});
+}
+
+Rectangle<int> Terminal::HistoryUpDown(int direction) {
+  if (direction == -1 && cmd_history_index >= 0) {
+    --cmd_history_index;
+  } else if (direction == 1 && cmd_history_index + 1 < cmd_history.size()) {
+    ++cmd_history_index;
+  }
+
+  cursor.x = 1;
+  const auto first_pos = CalcCursorPos();
+  Rectangle<int> draw_area{first_pos, {8 * (kColumns - 1), 16}};
+  FillRect(*window, draw_area.pos, draw_area.size, {0, 0, 0});
+
+  const char* history = "";
+  if (cmd_history_index >= 0) {
+    history = &cmd_history[cmd_history_index][0];
+  }
+
+  strcpy(&line_buf[0], history);
+  linebuf_index = strlen(history);
+
+  WriteString(*window, first_pos, {255, 255, 255}, history);
+  cursor.x = linebuf_index + 1;
+  return draw_area;
 }
 
 void TaskTerminal(uint64_t task_id, int64_t data) {

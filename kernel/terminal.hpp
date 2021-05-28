@@ -1,4 +1,5 @@
 #pragma once
+#include <deque>
 #include <memory>
 
 #include "graphics.hpp"
@@ -33,6 +34,9 @@ class Terminal {
 
   int linebuf_index{0};
   std::array<char, kLineMax> line_buf{};
+  std::deque<std::array<char, kLineMax>> cmd_history{};
+  int cmd_history_index{-1};
+  Rectangle<int> HistoryUpDown(int direction);
   void Scroll();
 };
 
