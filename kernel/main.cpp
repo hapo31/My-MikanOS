@@ -11,7 +11,6 @@
 
 #include "acpi.hpp"
 #include "asmfunc.h"
-#include "benchmark.hpp"
 #include "console.hpp"
 #include "font.hpp"
 #include "frame_buffer_config.hpp"
@@ -322,18 +321,13 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   auto &main_task = task_manager->CurrentTask();
 
   const auto lifegame_taskid =
-      task_manager->NewTask()
+      task_manager->NewTask(0)
           .InitContext(UpdateLifeGame, 0xdeadbeefc0ffee)
           .Wakeup()
           .ID();
 
   const auto terminal_taskid =
       task_manager->NewTask().InitContext(TaskTerminal, 0).Wakeup().ID();
-
-  InitializeBenchMark();
-
-  const auto benchmark_taskid =
-      task_manager->NewTask().InitContext(TaskBenchMark, 0).Wakeup().ID();
 
   usb::xhci::Initialize();
   InitializeKeyboard();
@@ -384,7 +378,6 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           {
             ScopedLock lock;
             task_manager->SendMessage(terminal_taskid, *msg);
-            task_manager->SendMessage(benchmark_taskid, *msg);
           }
         }
 
