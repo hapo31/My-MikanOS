@@ -222,8 +222,8 @@ void UpdateLifeGame(uint64_t task_id, int64_t data) {
             nextField[y * field_width + x] = 0;
           }
         }
-        field = nextField;
       }
+      field = nextField;
     }
     const int win_h = kCellSize * field_height;
     const int win_w = kCellSize * field_width;
