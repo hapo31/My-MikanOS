@@ -1,5 +1,7 @@
 #include "terminal.hpp"
 
+#include <string.h>
+
 #include "layer.hpp"
 #include "task.hpp"
 
@@ -13,6 +15,8 @@ Terminal::Terminal() {
 
   layer_id =
       layer_manager->NewLayer().SetWindow(window).SetDraggable(true).ID();
+
+  Print(">");
 }
 
 Rectangle<int> Terminal::InputKey(uint8_t modifier, uint8_t keycode,
@@ -30,6 +34,8 @@ Rectangle<int> Terminal::InputKey(uint8_t modifier, uint8_t keycode,
     } else {
       Scroll();
     }
+    ExecuteLine();
+    Print(">");
     draw_area.pos = ToplevelWindow::kTopLeftMargin;
     draw_area.size = window->InnerSize();
   } else if (ascii == '\b') {
@@ -55,6 +61,57 @@ Rectangle<int> Terminal::InputKey(uint8_t modifier, uint8_t keycode,
   DrawCursor(true);
 
   return draw_area;
+}
+
+void Terminal::Print(const char* str) {
+  DrawCursor(false);
+
+  auto newline = [this]() {
+    cursor.x = 0;
+    if (cursor.y < kRows - 1) {
+      ++cursor.y;
+    } else {
+      Scroll();
+    }
+  };
+
+  while (*str) {
+    if (*str == '\n') {
+      newline();
+    } else {
+      WriteAscii(*window, CalcCursorPos(), {255, 255, 255}, *str);
+      if (cursor.x == kColumns - 1) {
+        newline();
+      } else {
+        ++cursor.x;
+      }
+    }
+
+    ++str;
+  }
+
+  DrawCursor(true);
+}
+
+void Terminal::ExecuteLine() {
+  char* command = &line_buf[0];
+
+  char* first_arg = strchr(command, ' ');
+  if (first_arg) {
+    *first_arg = 0;
+    ++first_arg;
+  }
+
+  if (strncmp(command, "echo", 4) == 0) {
+    if (first_arg) {
+      Print(first_arg);
+    }
+    Print("\n");
+  } else if (command[0] != 0) {
+    Print("no such command: ");
+    Print(command);
+    Print("\n");
+  }
 }
 
 void Terminal::BlinkCursor() {

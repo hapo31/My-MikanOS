@@ -19,6 +19,9 @@ class Terminal {
 
   Rectangle<int> InputKey(uint8_t modifier, uint8_t keycode, char ascii);
 
+  void Print(const char* str);
+  void ExecuteLine();
+
  private:
   std::shared_ptr<ToplevelWindow> window;
   unsigned int layer_id;
