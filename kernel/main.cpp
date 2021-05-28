@@ -40,6 +40,10 @@ class ScopedLock {
   ~ScopedLock() { asm("sti"); }
 };
 
+void Lock() { asm("cli"); }
+
+void Free() { asm("sti"); }
+
 void operator delete(void *obj) noexcept {}
 
 void DrawTextCursor(bool visible);
@@ -128,7 +132,7 @@ unsigned int lifegame_window_layer_id;
 std::vector<int> field;
 
 uint32_t getRand(void) {
-  static uint32_t y = 1283999442;
+  static uint32_t y = 1284002006;
   y = y ^ (y << 13);
   y = y ^ (y >> 17);
   return y = y ^ (y << 5);
@@ -396,6 +400,18 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           } else if (msg->arg.keyboard.ascii == 'w') {
             task_manager->Wakeup(lifegame_taskid);
             Log(kInfo, "wakeup life\n");
+          }
+        } else {
+          Lock();
+          auto task_it = layer_task_map->find(act);
+          Free();
+          if (task_it != layer_task_map->end()) {
+            Lock();
+            task_manager->SendMessage(task_it->second, *msg);
+            Free();
+          } else {
+            Log(kInfo, "key push not handle: Keycode %02x, ascii: %02x\n",
+                msg->arg.keyboard.keycode, msg->arg.keyboard.ascii);
           }
         }
         break;

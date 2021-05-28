@@ -184,6 +184,7 @@ FrameBuffer* screen;
 
 LayerManager* layer_manager;
 ActiveLayer* active_layer;
+std::map<unsigned int, uint64_t>* layer_task_map;
 
 ActiveLayer::ActiveLayer(LayerManager& manager_) : manager(manager_) {}
 
@@ -233,6 +234,8 @@ void InitializeLayer() {
   layer_manager->UpDown(bglayer_id, 0);
 
   active_layer = new ActiveLayer(*layer_manager);
+  layer_task_map = new std::map<unsigned int, uint64_t>;
+
   InitializeWindowConsole();
 }
 
