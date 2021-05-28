@@ -21,11 +21,20 @@ void WriteAscii(PixelWriter &writer, int x, int y, const PixelColor &color,
   }
 }
 
+void WriteAscii(PixelWriter &writer, Vector2D<int> pos, const PixelColor &color,
+                char c) {
+  WriteAscii(writer, pos.x, pos.y, color, c);
+}
+
 void WriteString(PixelWriter &writer, int x, int y, const PixelColor &color,
                  const char *str) {
   for (int i = 0; str[i] != '\0'; ++i) {
     WriteAscii(writer, x + i * 8, y, color, str[i]);
   }
+}
+void WriteString(PixelWriter &writer, Vector2D<int> pos,
+                 const PixelColor &color, const char *c) {
+  WriteString(writer, pos.x, pos.y, color, c);
 }
 
 const uint8_t *GetFont(char c) {
