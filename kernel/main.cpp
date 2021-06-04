@@ -270,7 +270,8 @@ alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
 extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
                                    const MemoryMap &memmap_ref,
-                                   const acpi::RSDP &acpi_table) {
+                                   const acpi::RSDP &acpi_table,
+                                   void *volume_image) {
   const FrameBufferConfig config{config_ref};
   const MemoryMap memmap{memmap_ref};
 
@@ -336,6 +337,22 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   active_layer->Activate(lifegame_window_layer_id);
 
   char str[128];
+
+  uint8_t *p = reinterpret_cast<uint8_t *>(volume_image);
+  Log(kInfo, "Volume Image: \n");
+  for (int i = 0; i < 16; ++i) {
+    Log(kInfo, "%04x:", i * 16);
+    for (int j = 0; j < 8; ++j) {
+      Log(kInfo, " %02x", *p);
+      ++p;
+    }
+    Log(kInfo, " ");
+    for (int j = 0; j < 8; ++j) {
+      Log(kInfo, " %02x", *p);
+      ++p;
+    }
+    Log(kInfo, "\n");
+  }
 
 #pragma region メッセージループ
 

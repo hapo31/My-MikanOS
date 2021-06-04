@@ -5,3 +5,4 @@ mnt/
 *.elf
 devenv/x86_64-elf/
 devenv/OVMF_VARS.fd
+fat_disk
