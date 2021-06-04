@@ -12,6 +12,7 @@
 #include "acpi.hpp"
 #include "asmfunc.h"
 #include "console.hpp"
+#include "fat.hpp"
 #include "font.hpp"
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
@@ -137,6 +138,16 @@ uint32_t getRand(void) {
   return y = y ^ (y << 5);
 }
 
+void InitializeField() {
+  Lock();
+  for (int y = 1; y < field_height - 1; ++y) {
+    for (int x = 1; x < field_width - 1; ++x) {
+      field[y * field_width + x] = (getRand() % 3) >= 1;
+    }
+  }
+  Free();
+}
+
 void InitializeLifeGame(int width, int height) {
   const int win_h = kCellSize * (height + 1);
   const int win_w = kCellSize * (width + 1);
@@ -145,12 +156,7 @@ void InitializeLifeGame(int width, int height) {
   field_height = height;
 
   field.resize((height + 2) * (width + 2));
-  for (int y = 1; y < height - 1; ++y) {
-    for (int x = 1; x < width - 1; ++x) {
-      field[y * width + x] = (getRand() % 3) >= 1;
-    }
-  }
-
+  InitializeField();
   lifegame_window = std::make_shared<ToplevelWindow>(
       win_w, win_h, screen_config.pixel_format, "life game");
 
@@ -297,6 +303,7 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
   InitializeMemoryManager(memmap);
   InitializeInterrupt();
 
+  fat::Initialize(volume_image);
   InitializePCI();
 
   InitializeLayer();
@@ -410,6 +417,8 @@ extern "C" void KernelMainNewStack(const FrameBufferConfig &config_ref,
           } else if (msg->arg.keyboard.ascii == 'w') {
             task_manager->Wakeup(lifegame_taskid);
             Log(kInfo, "wakeup life\n");
+          } else if (msg->arg.keyboard.ascii == 'r') {
+            InitializeField();
           }
         } else {
           Lock();

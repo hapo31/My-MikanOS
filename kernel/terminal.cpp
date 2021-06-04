@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "fat.hpp"
 #include "layer.hpp"
 #include "pci.hpp"
 #include "task.hpp"
@@ -105,24 +106,26 @@ void Terminal::Print(const char* str) {
 }
 
 void Terminal::ExecuteLine() {
-  char* command = &line_buf[0];
+  char* command_ptr = &line_buf[0];
 
-  char* first_arg = strchr(command, ' ');
+  char* first_arg = strchr(command_ptr, ' ');
   if (first_arg) {
     *first_arg = 0;
     ++first_arg;
   }
 
-  if (strncmp(command, "echo", 4) == 0) {
+  std::string command(command_ptr);
+
+  if (command == "echo") {
     if (first_arg) {
       Print(first_arg);
     }
     Print("\n");
-  } else if (strncmp(command, "clear", 5) == 0) {
+  } else if (command == "clear") {
     FillRect(window->InnerWriter(), {4, 4}, {8 * kColumns, 16 * kRows},
              {0, 0, 0});
     cursor.y = 0;
-  } else if (strncmp(command, "lspci", 5) == 0) {
+  } else if (command == "lspci") {
     char s[64];
     for (int i = 0; i < pci::num_devices; ++i) {
       const auto& dev = pci::devices[i];
@@ -133,9 +136,34 @@ void Terminal::ExecuteLine() {
               dev.class_code.interface);
       Print(s);
     }
-  } else if (command[0] != 0) {
+  } else if (command == "ls") {
+    auto root_dir_entries = fat::GetSectorByCluster<fat::DirectoryEntry>(
+        fat::boot_volume_image->root_cluster);
+    auto entries_per_cluster = fat::boot_volume_image->sectors_per_cluster;
+    char s[64];
+
+    for (int i = 0; i < entries_per_cluster; ++i) {
+      auto file_names = fat::ReadName(root_dir_entries[i]);
+      auto base = std::get<0>(file_names);
+      auto ext = std::get<1>(file_names);
+      if (base[0] == 0x00) {
+        break;
+      } else if (static_cast<uint8_t>(base[0]) == 0xe5) {
+        continue;
+      } else if (root_dir_entries[i].attr == fat::Attribute::kLongName) {
+        continue;
+      }
+
+      if (ext[0]) {
+        sprintf(s, "%s.%s\n", base.c_str(), ext.c_str());
+      } else {
+        sprintf(s, "%s\n", base.c_str());
+      }
+      Print(s);
+    }
+  } else {
     Print("no such command: ");
-    Print(command);
+    Print(command.c_str());
     Print("\n");
   }
 }
