@@ -2,6 +2,7 @@
 #include <deque>
 #include <memory>
 
+#include "fat.hpp"
 #include "graphics.hpp"
 #include "window.hpp"
 
@@ -20,9 +21,11 @@ class Terminal {
 
   Rectangle<int> InputKey(uint8_t modifier, uint8_t keycode, char ascii);
 
+  void ExecuteLine();
+  void ExecuteFile(const fat::DirectoryEntry& file_entry);
+
   void Print(char c);
   void Print(const char* str);
-  void ExecuteLine();
 
  private:
   std::shared_ptr<ToplevelWindow> window;

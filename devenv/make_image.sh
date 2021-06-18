@@ -29,5 +29,16 @@ if [ "$ANOTHER_FILE" != "" ]
 then
     sudo cp $ANOTHER_FILE $MOUNT_POINT/
 fi
+
+MIKANOS_DIR=$(pwd)
+
+for APP in $(ls "$MIKANOS_DIR/apps")
+do
+  if [ -f $MIKANOS_DIR/apps/$APP/$APP ]
+  then
+    sudo cp "$MIKANOS_DIR/apps/$APP/$APP" $MOUNT_POINT/
+  fi
+done
+
 sleep 0.5
 sudo umount $MOUNT_POINT
