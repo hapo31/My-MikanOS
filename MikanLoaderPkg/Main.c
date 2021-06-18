@@ -315,7 +315,7 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE image_handle,
 
   EFI_FILE_PROTOCOL *volume_file;
 
-  status = root_dir->Open(root_dir, &volume_file, L"\\fat_dist",
+  status = root_dir->Open(root_dir, &volume_file, L"\\fat_disk",
                           EFI_FILE_MODE_READ, 0);
   if (status == EFI_SUCCESS) {
     status = ReadFile(volume_file, &volume_image);
