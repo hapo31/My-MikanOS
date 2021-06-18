@@ -20,6 +20,7 @@ class Terminal {
 
   Rectangle<int> InputKey(uint8_t modifier, uint8_t keycode, char ascii);
 
+  void Print(char c);
   void Print(const char* str);
   void ExecuteLine();
 

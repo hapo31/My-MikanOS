@@ -75,6 +75,28 @@ Rectangle<int> Terminal::InputKey(uint8_t modifier, uint8_t keycode,
   return draw_area;
 }
 
+void Terminal::Print(char c) {
+  auto newline = [this]() {
+    cursor.x = 0;
+    if (cursor.y < kRows - 1) {
+      ++cursor.y;
+    } else {
+      Scroll();
+    }
+  };
+
+  if (c == '\n') {
+    newline();
+  } else {
+    WriteAscii(*window, CalcCursorPos(), {255, 255, 255}, c);
+    if (cursor.x == kColumns - 1) {
+      newline();
+    } else {
+      ++cursor.x;
+    }
+  }
+}
+
 void Terminal::Print(const char* str) {
   DrawCursor(false);
 
@@ -88,17 +110,7 @@ void Terminal::Print(const char* str) {
   };
 
   while (*str) {
-    if (*str == '\n') {
-      newline();
-    } else {
-      WriteAscii(*window, CalcCursorPos(), {255, 255, 255}, *str);
-      if (cursor.x == kColumns - 1) {
-        newline();
-      } else {
-        ++cursor.x;
-      }
-    }
-
+    Print(*str);
     ++str;
   }
 
@@ -161,6 +173,31 @@ void Terminal::ExecuteLine() {
       }
       Print(s);
     }
+  } else if (command == "cat") {
+    char s[64];
+    auto file_entry = fat::FindFile(first_arg);
+    if (!file_entry) {
+      sprintf(s, "no such file: %s\n", first_arg);
+      Print(s);
+    } else {
+      auto cluster = file_entry->FirstCluster();
+      auto remain_bytes = file_entry->file_size;
+
+      DrawCursor(false);
+      while (cluster != 0 && cluster != fat::kEndOfClusterchain) {
+        char* p = fat::GetSectorByCluster<char>(cluster);
+        int i = 0;
+        for (; i < fat::bytes_per_cluster && i < remain_bytes; ++i) {
+          Print(*p);
+          ++p;
+        }
+        remain_bytes -= i;
+        cluster = fat::NextCluster(cluster);
+      }
+      DrawCursor(true);
+    }
+  } else if (command.length() == 0) {
+    Print('\n');
   } else {
     Print("no such command: ");
     Print(command.c_str());

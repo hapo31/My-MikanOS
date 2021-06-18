@@ -77,4 +77,14 @@ T* GetSectorByCluster(unsigned long cluster) {
 
 std::tuple<std::string, std::string> ReadName(const DirectoryEntry& entry);
 
+static const unsigned long kEndOfClusterchain = 0x0ffffffflu;
+
+unsigned long NextCluster(unsigned long cluster);
+
+DirectoryEntry* FindFile(const char* name, unsigned long directory_cluster = 0);
+
+extern unsigned long bytes_per_cluster;
+
+bool NameIsEqual(const DirectoryEntry& entry, const char* name);
+
 }  // namespace fat
